@@ -639,6 +639,17 @@ body::before {
     </div>
   </div>
 
+    <div class="setting-group">
+      <div class="setting-label">Item Frequency</div>
+      <div class="btn-group" id="item-opts">
+        <button class="opt-btn" data-val="5">5s</button>
+        <button class="opt-btn selected" data-val="10">10s</button>
+        <button class="opt-btn" data-val="15">15s</button>
+        <button class="opt-btn" data-val="20">20s</button>
+        <button class="opt-btn" data-val="0">∞</button>
+      </div>
+    </div>
+
   <button class="start-btn" id="start-btn">START GAME</button>
 
   <div class="legend">
@@ -984,17 +995,20 @@ function playFreeze() { playTone(500, 'triangle', 0.3, 0.5); }
 function playMeteor() { playTone(200,'sawtooth',0.1); setTimeout(()=>playTone(300,'sawtooth',0.1),100); setTimeout(()=>playTone(150,'sawtooth',0.2),200); }
 
 // ===== SETTINGS =====
-let settings = { n: 6, time: 30, wordLen: 4, kpm: 400 };
+let settings = { n: 6, time: 30, wordLen: 4, kpm: 400, itemInterval: 10 };
 
 // ===== START SCREEN =====
 function initStartScreen() {
   // Option buttons
-  ['size-opts','time-opts','wordlen-opts'].forEach(id => {
+  ['size-opts','time-opts','wordlen-opts','item-opts'].forEach(id => {
     document.getElementById(id).querySelectorAll('.opt-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.parentElement.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        const key = id === 'size-opts' ? 'n' : id === 'time-opts' ? 'time' : 'wordLen';
+        const key = id === 'size-opts' ? 'n'
+                        : id === 'time-opts' ? 'time'
+                        : id === 'wordlen-opts' ? 'wordLen'
+                        : 'itemInterval';
         settings[key] = parseInt(btn.dataset.val);
       });
     });
@@ -1650,9 +1664,11 @@ function startTimers() {
     renderAll();
   }, 1000);
 
-  G.itemTimer = setInterval(() => {
-    if (G.running) { spawnItem(); renderAll(); }
-  }, ITEM_SPAWN_INTERVAL);
+  if (settings.itemInterval > 0) {
+   G.itemTimer = setInterval(() => {
+      if (G.running) { spawnItem(); renderAll(); }
+   }, settings.itemInterval * 1000);
+  }
 
   // Continuous effects update via rAF
   requestAnimationFrame(gameLoop);
@@ -1819,7 +1835,17 @@ async function cpuTypeWord(target) {
     await sleep(msPerChar);
   }
 
-  // Complete word — move
+  // ワープ等で位置が変わっていた場合、targetが到達可能か再確認
+  const step = G.cpuSpeed > 0 ? 2 : 1;
+  const reachable = getCpuReachable(step);
+  const stillReachable = reachable.some(({r, c}) => r === target.r && c === target.c);
+
+  if (!stillReachable) {
+    // 到達不可能になっていたら移動キャンセル
+    G.cpuInput = '';
+    return;
+  }
+
   cpuMoveTo(target.r, target.c);
   G.cpuInput = '';
 }
