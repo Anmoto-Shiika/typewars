@@ -345,6 +345,15 @@ body::before {
 .cell-word .typed { color: var(--accent); }
 .cell-word .remaining { color: var(--text-dim); }
 
+.space-prompt {
+  color: var(--accent);
+  animation: blinkCursor 0.8s ease-in-out infinite;
+}
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+
 /* item icon */
 .cell-item {
   font-size: 16px;
@@ -1205,10 +1214,17 @@ function renderAll() {
         const w = cell.word;
         const typed = G.input;
         let html = '';
+
+        const isComplete = typed === w; // 単語が完成していてスペース待ちの状態
         if (typed && w.startsWith(typed)) {
-          html = `<span class="typed">${typed}</span><span class="remaining">${w.slice(typed.length)}</span>`;
+          if (isComplete) {
+            // 単語完成→スペース待ち表示
+            html = `<span class="typed">${typed}</span><span class="remaining space-prompt">_</span>`;
+          } else {
+            html = `<span class="typed">${typed}</span><span class="remaining">${w.slice(typed.length)}_</span>`;
+          }
         } else {
-          html = `<span class="remaining">${w}</span>`;
+          html = `<span class="remaining">${w}_</span>`;
         }
         wordEl.innerHTML = html;
       }
@@ -1574,38 +1590,73 @@ function spawnItem() {
 function handleKeydown(e) {
   if (!G.running) return;
 
-  // Number keys for items
+  // 数字キー（アイテム使用）
   if (e.key >= '1' && e.key <= '9') {
     usePlayerItem(parseInt(e.key)-1);
     return;
   }
 
-  // Arrow keys
-  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) {
+  // 矢印キー
+  const arrowDirMap = {
+    ArrowUp:   [-1, 0],
+    ArrowDown: [ 1, 0],
+    ArrowLeft: [ 0,-1],
+    ArrowRight:[ 0, 1],
+    // Shift+I/J/L/, のエイリアス
+    I: [-1, 0],
+    J: [ 0,-1],
+    L: [ 0, 1],
+    '<': [ 1, 0], // Shift+, = '<'
+  };
+
+  if (e.key in arrowDirMap && (e.key.startsWith('Arrow') || e.shiftKey)) {
     e.preventDefault();
     if (G.playerFrozen > 0) return;
-    const dirMap = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
-    const [dr,dc] = dirMap[e.key];
+    const [dr, dc] = arrowDirMap[e.key];
     playerArrowMove(dr, dc);
     return;
   }
 
+  // Esc / Backspace：入力クリア
   if (e.key === 'Escape' || e.key === 'Backspace') {
     e.preventDefault();
     G.input = '';
+    G.combo = 0;
     renderAll();
     return;
   }
 
   if (G.playerFrozen > 0) return;
 
-  // a-z typing
+  // スペースキー：単語確定
+  if (e.key === ' ') {
+    e.preventDefault();
+    const reachable = getPlayerRange();
+    let matched = null;
+    reachable.forEach(key => {
+      const [r,c] = key.split(',').map(Number);
+      const cell = getCell(r,c);
+      if (cell && cell.word === G.input) matched = {r,c};
+    });
+    if (matched) {
+      playerMoveTo(matched.r, matched.c);
+    } else {
+      // 単語が完成していない状態でスペース → ミス扱い
+      playMiss();
+      const el = document.getElementById('input-display');
+      el.classList.add('wrong');
+      setTimeout(() => el.classList.remove('wrong'), 200);
+    }
+    return;
+  }
+
+  // a-z タイピング
   if (/^[a-z]$/.test(e.key)) {
     e.preventDefault();
     const newInput = G.input + e.key;
     const reachable = getPlayerRange();
-    
-    // Check if newInput can match anything reachable
+
+    // newInput で前方一致する候補があるか確認
     let hasCandidate = false;
     reachable.forEach(key => {
       const [r,c] = key.split(',').map(Number);
@@ -1614,39 +1665,26 @@ function handleKeydown(e) {
     });
 
     if (!hasCandidate) {
-      // Miss
-      G.input = '';
+      // ミス：入力は残したまま、ミス音だけ鳴らす
       G.combo = 0;
       playMiss();
       const el = document.getElementById('input-display');
       el.classList.add('wrong');
       setTimeout(() => el.classList.remove('wrong'), 200);
-      renderAll();
+      renderAll(); // 表示は現状維持（G.inputは変えない）
       return;
     }
 
+    // 正しい入力
     G.input = newInput;
     G.combo++;
     playType();
 
-    // Bump combo display
     const cd = document.getElementById('combo-display');
     cd.classList.add('bump');
     setTimeout(() => cd.classList.remove('bump'), 100);
 
-    // Check for exact match
-    let matched = null;
-    reachable.forEach(key => {
-      const [r,c] = key.split(',').map(Number);
-      const cell = getCell(r,c);
-      if (cell && cell.word === newInput) matched = {r,c};
-    });
-
-    if (matched) {
-      playerMoveTo(matched.r, matched.c);
-    } else {
-      renderAll();
-    }
+    renderAll();
   }
 }
 
