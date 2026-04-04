@@ -57,8 +57,8 @@ body::before {
     0deg,
     transparent,
     transparent 2px,
-    rgba(0,0,0,0.08) 2px,
-    rgba(0,0,0,0.08) 4px
+    rgba(0,0,0,var(--scanline-opacity, 0.08)) 2px,
+    rgba(0,0,0,var(--scanline-opacity, 0.08)) 4px
   );
   pointer-events: none;
   z-index: 9999;
@@ -701,6 +701,7 @@ body::before {
         <button class="opt-btn" data-val="night">Night</button>
         <button class="opt-btn" data-val="ocean">Ocean</button>
         <button class="opt-btn" data-val="sunset">Sunset</button>
+        <button class="opt-btn" data-val="konoha">Konoha</button>
       </div>
     </div>
 
@@ -1125,6 +1126,24 @@ function applyTheme(theme) {
       '--text': '#ffe8d0', '--text-dim': '#aa7755',
       '--accent': '#ffcc44', '--combo': '#ff6644', '--item-color': '#44ffaa', '--item-glow': '#44ffaa88',
       '--neutral': '#2a1808',
+    },
+    konoha: {
+      '--bg':           '#f0f8ff',
+      '--bg2':          '#e0f0ff',
+      '--bg3':          '#cce4ff',
+      '--player-color': '#007fff',
+      '--player-dim':   '#cce4ff',
+      '--player-glow':  '#007fff66',
+      '--cpu-color':    '#005fcc',
+      '--cpu-dim':      '#b8d8ff',
+      '--cpu-glow':     '#005fcc66',
+      '--text':         '#003366',
+      '--text-dim':     '#5588bb',
+      '--accent':       '#007fff',
+      '--combo':        '#0055cc',
+      '--item-color':   '#007fff',
+      '--item-glow':    '#007fff55',
+      '--neutral':      '#ddeeff',
     },
   };
   const t = themes[theme] || themes.default;
