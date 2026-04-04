@@ -3,7 +3,7 @@
 <head>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Inconsolata:wght@400;700&family=Nunito:wght@400;700&family=Rajdhani:wght@400;700&display=swap" rel="stylesheet">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TYPE WARS — Typing Territory Battle</title>
@@ -32,6 +32,8 @@
   --font-display: 'Roboto Mono', monospace;
   --cell-size: 100px;
   --gap: 4px;
+  --word-font-size: 14px;
+  --word-font: 'Roboto Mono', monospace;
 }
 
 body {
@@ -100,9 +102,9 @@ body::before {
 
 .settings-panel {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  max-width: 640px;
+  grid-template-columns: 1fr 1fr 1fr;  /* 2列 → 3列 */
+  gap: 16px;
+  max-width: 960px;                     /* 640px → 960px */
   width: 100%;
 }
 
@@ -120,6 +122,20 @@ body::before {
   text-transform: uppercase;
   margin-bottom: 12px;
 }
+
+.font-select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid #333344;
+  color: var(--text);
+  font-family: var(--font-main);
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+.font-select:hover { border-color: var(--player-color); }
 
 .btn-group {
   display: flex;
@@ -207,11 +223,11 @@ body::before {
 
 /* ===== HUD ===== */
 .hud {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* 左・中央・右の3列 */
   align-items: center;
   width: 100%;
-  max-width: 900px;
+  max-width: 1100px; /* game-layout と同じ値に */
   padding: 8px 0;
 }
 
@@ -221,6 +237,10 @@ body::before {
   align-items: center;
   gap: 4px;
 }
+
+.hud-section:first-child { justify-self: start; }  /* Player → 左寄せ */
+.hud-section:last-child  { justify-self: end; }    /* CPU → 右寄せ */
+/* 中央の TIME は auto で自動的に中央に固定される */
 
 .hud-label { font-size: 13px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; }
 
@@ -331,13 +351,17 @@ body::before {
 
 /* word text */
 .cell-word {
-  font-size: 14px;
+  font-size: var(--word-font-size);
+  font-family: var(--word-font);
   margin-top: auto;
   color: var(--text-dim);
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   text-align: center;
-  word-break: break-all;
-  padding: 0 4px;
+  white-space: nowrap;      /* 改行禁止 */
+  overflow: hidden;         /* はみ出し非表示 */
+  text-overflow: ellipsis;  /* はみ出したら… */
+  width: 100%;
+  padding: 0 2px;
   position: relative;
   z-index: 2;
   user-select: none;
@@ -509,7 +533,7 @@ body::before {
 
 /* ===== END SCREEN ===== */
 #end-screen {
-  gap: 24px;
+  gap: 36px;
   background: radial-gradient(ellipse at center, #1a1a2a 0%, var(--bg) 70%);
   padding: 40px;
 }
@@ -646,7 +670,39 @@ body::before {
         <div class="kpm-val" id="kpm-val">400</div>
       </div>
     </div>
-  </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Word Font Size</div>
+      <div class="btn-group" id="uisize-opts">
+        <button class="opt-btn" data-val="14">14px</button>
+        <button class="opt-btn selected" data-val="18">18px</button>
+        <button class="opt-btn" data-val="22">22px</button>
+        <button class="opt-btn" data-val="26">26px</button>
+      </div>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Word Font</div>
+      <select id="font-opts" class="font-select">
+        <option value="'Roboto Mono',monospace"    style="font-family:'Roboto Mono',monospace">Roboto Mono</option>
+        <option value="'JetBrains Mono',monospace" style="font-family:'JetBrains Mono',monospace">JetBrains Mono</option>
+        <option value="'Source Code Pro',monospace" style="font-family:'Source Code Pro',monospace">Source Code Pro</option>
+        <option value="'Inconsolata',monospace"    style="font-family:'Inconsolata',monospace">Inconsolata</option>
+        <option value="'Nunito',sans-serif"        style="font-family:'Nunito',sans-serif">Nunito</option>
+        <option value="'Rajdhani',sans-serif"      style="font-family:'Rajdhani',sans-serif">Rajdhani</option>
+      </select>
+    </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Theme Color</div>
+      <div class="btn-group" id="theme-opts">
+        <button class="opt-btn selected" data-val="default">Default</button>
+        <button class="opt-btn" data-val="forest">Forest</button>
+        <button class="opt-btn" data-val="night">Night</button>
+        <button class="opt-btn" data-val="ocean">Ocean</button>
+        <button class="opt-btn" data-val="sunset">Sunset</button>
+      </div>
+    </div>
 
     <div class="setting-group">
       <div class="setting-label">Item Frequency</div>
@@ -658,6 +714,7 @@ body::before {
         <button class="opt-btn" data-val="0">∞</button>
       </div>
     </div>
+  </div>
 
   <button class="start-btn" id="start-btn">START GAME</button>
 
@@ -665,7 +722,6 @@ body::before {
     <div class="legend-item"><div class="legend-dot" style="background:var(--player-dim)"></div> Player</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--cpu-dim)"></div> CPU</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--neutral)"></div> Neutral</div>
-    <div class="legend-item" style="color:var(--item-color)">⬡ Items appear every 10s</div>
   </div>
 </div>
 
@@ -700,15 +756,18 @@ body::before {
         <div class="combo-display" id="combo-display">×0</div>
       </div>
       <div class="panel-box">
-        <div class="panel-title">Items (1-9)</div>
-        <div class="item-slots" id="item-slots"></div>
-        <div class="bomb-ready-indicator" id="bomb-ready">💣 BOMB READY</div>
-      </div>
-      <div class="panel-box">
         <div class="panel-title">Status</div>
         <div class="status-effects" id="player-status"></div>
       </div>
+      <div class="panel-box">
+        <div class="panel-title">Stats</div>
+        <div style="font-size:12px;line-height:2;color:var(--text-dim)">
+          <div>KPM　<span id="stat-kpm" style="color:var(--accent)">0</span></div>
+          <div>Miss　<span id="stat-miss" style="color:var(--cpu-color)">0</span></div>
+          <div>MaxCombo　<span id="stat-maxcombo" style="color:var(--combo)">0</span></div>
+      </div>
     </div>
+  </div>
 
     <!-- Grid -->
     <div class="grid-wrapper">
@@ -729,9 +788,8 @@ body::before {
         <div class="panel-title">Controls</div>
         <div style="font-size:10px;color:var(--text-dim);line-height:1.8;letter-spacing:0.5px">
           <div>⌨ Type to move</div>
-          <div>↑↓←→ Move on own turf</div>
+          <div>↑↓←→ / Shift+IJKL Move on turf</div>
           <div>Esc/⌫ Clear input</div>
-          <div>1-9 Use item</div>
         </div>
       </div>
     </div>
@@ -744,6 +802,20 @@ body::before {
   <div class="result-scores">
     <div class="result-score-player" id="result-player">Player: 0</div>
     <div class="result-score-cpu" id="result-cpu">CPU: 0</div>
+  </div>
+  <div style="display:flex;gap:48px;font-size:20px;color:var(--text-dim);letter-spacing:2px;margin:8px 0">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="font-size:11px;letter-spacing:3px">KPM</div>
+      <span id="result-kpm" style="color:var(--accent);font-size:28px;font-weight:bold">0</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="font-size:11px;letter-spacing:3px">MISS</div>
+      <span id="result-miss" style="color:var(--cpu-color);font-size:28px;font-weight:bold">0</span>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <div style="font-size:11px;letter-spacing:3px">MAX COMBO</div>
+      <span id="result-maxcombo" style="color:var(--combo);font-size:28px;font-weight:bold">0</span>
+    </div>
   </div>
   <button class="retry-btn" id="retry-btn">PLAY AGAIN</button>
 </div>
@@ -958,9 +1030,9 @@ const WORD_BANK = [
 ].filter(w => /^[a-z]+$/.test(w));
 
 // ===== CONSTANTS =====
-const ITEM_TYPES = ['speed','freeze','bomb','meteor'];
-const ITEM_ICONS = { speed:'⚡', freeze:'❄️', bomb:'💣', meteor:'☄️' };
-const ITEM_NAMES = { speed:'SPEED', freeze:'FREEZE', bomb:'BOMB', meteor:'METEOR' };
+const ITEM_TYPES = ['speed','freeze','bomb','meteor','banish','beam','missile'];
+const ITEM_ICONS = { speed:'⚡', freeze:'❄️', bomb:'💣', meteor:'☄️', banish:'🌀', beam:'〰️', missile:'🚀' };
+const ITEM_NAMES = { speed:'SPEED', freeze:'FREEZE', bomb:'BOMB', meteor:'METEOR', banish:'BANISH', beam:'BEAM', missile:'MISSILE' };
 const ITEM_SPAWN_INTERVAL = 10000;
 const MAX_ITEMS = 3;
 
@@ -1004,21 +1076,78 @@ function playFreeze() { playTone(500, 'triangle', 0.3, 0.5); }
 function playMeteor() { playTone(200,'sawtooth',0.1); setTimeout(()=>playTone(300,'sawtooth',0.1),100); setTimeout(()=>playTone(150,'sawtooth',0.2),200); }
 
 // ===== SETTINGS =====
-let settings = { n: 6, time: 30, wordLen: 4, kpm: 400, itemInterval: 10 };
+let settings = { n: 6, time: 30, wordLen: 4, kpm: 200, itemInterval: 10, wordFontSize: 18, wordFont: "'Roboto Mono',monospace", theme: 'default' };
+
+// ===== THEME SELECTION =====
+function applyTheme(theme) {
+  const themes = {
+    default: {
+      // 背景
+      '--bg':  '#0a0a0f', '--bg2': '#12121a', '--bg3': '#1a1a26',
+      // プレイヤー
+      '--player-color': '#3b8eff', '--player-dim': '#1a3a6e', '--player-glow': '#3b8eff88',
+      // CPU
+      '--cpu-color': '#ff4455', '--cpu-dim': '#6e1a22', '--cpu-glow': '#ff445588',
+      // テキスト
+      '--text': '#e8e8f0', '--text-dim': '#888899',
+      // アクセント
+      '--accent': '#a0ff80', '--combo': '#ff9500', '--item-color': '#ffd700', '--item-glow': '#ffd70088',
+      '--neutral': '#2a2a3a',
+    },
+    forest: {
+      '--bg':  '#080f08', '--bg2': '#101a10', '--bg3': '#182218',
+      '--player-color': '#44ee66', '--player-dim': '#0e3a18', '--player-glow': '#44ee6688',
+      '--cpu-color': '#ee6622', '--cpu-dim': '#3a1a08', '--cpu-glow': '#ee662288',
+      '--text': '#d8f0d0', '--text-dim': '#6a8868',
+      '--accent': '#aaff44', '--combo': '#ffcc00', '--item-color': '#ffdd44', '--item-glow': '#ffdd4488',
+      '--neutral': '#1e2e1e',
+    },
+    night: {
+      '--bg':  '#05050f', '--bg2': '#0a0a1e', '--bg3': '#10102e',
+      '--player-color': '#aa88ff', '--player-dim': '#2a1a55', '--player-glow': '#aa88ff88',
+      '--cpu-color': '#ffee44', '--cpu-dim': '#3a3400', '--cpu-glow': '#ffee4488',
+      '--text': '#e0d8ff', '--text-dim': '#7866aa',
+      '--accent': '#dd88ff', '--combo': '#ff88cc', '--item-color': '#88eeff', '--item-glow': '#88eeff88',
+      '--neutral': '#18182e',
+    },
+    ocean: {
+      '--bg':  '#020e18', '--bg2': '#061828', '--bg3': '#0a2235',
+      '--player-color': '#00ccff', '--player-dim': '#003a50', '--player-glow': '#00ccff88',
+      '--cpu-color': '#ff4499', '--cpu-dim': '#440022', '--cpu-glow': '#ff449988',
+      '--text': '#cceeff', '--text-dim': '#4488aa',
+      '--accent': '#44ffdd', '--combo': '#ffaa00', '--item-color': '#ffee44', '--item-glow': '#ffee4488',
+      '--neutral': '#0a2030',
+    },
+    sunset: {
+      '--bg':  '#120808', '--bg2': '#1e1008', '--bg3': '#2a1810',
+      '--player-color': '#ff8844', '--player-dim': '#4a1e08', '--player-glow': '#ff884488',
+      '--cpu-color': '#cc44ff', '--cpu-dim': '#2e0844', '--cpu-glow': '#cc44ff88',
+      '--text': '#ffe8d0', '--text-dim': '#aa7755',
+      '--accent': '#ffcc44', '--combo': '#ff6644', '--item-color': '#44ffaa', '--item-glow': '#44ffaa88',
+      '--neutral': '#2a1808',
+    },
+  };
+  const t = themes[theme] || themes.default;
+  Object.entries(t).forEach(([k, v]) => {
+    document.documentElement.style.setProperty(k, v);
+  });
+}
 
 // ===== START SCREEN =====
 function initStartScreen() {
   // Option buttons
-  ['size-opts','time-opts','wordlen-opts','item-opts'].forEach(id => {
+  ['size-opts','time-opts','wordlen-opts','item-opts','uisize-opts','theme-opts'].forEach(id => {
     document.getElementById(id).querySelectorAll('.opt-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.parentElement.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        const key = id === 'size-opts' ? 'n'
-                        : id === 'time-opts' ? 'time'
-                        : id === 'wordlen-opts' ? 'wordLen'
-                        : 'itemInterval';
-        settings[key] = parseInt(btn.dataset.val);
+          const key = id === 'size-opts'    ? 'n'
+                           : id === 'time-opts'    ? 'time'
+                           : id === 'wordlen-opts' ? 'wordLen'
+                           : id === 'item-opts'    ? 'itemInterval'
+                           : id === 'uisize-opts'  ? 'wordFontSize'
+                           : 'theme';
+          settings[key] = id === 'uisize-opts' ? parseInt(btn.dataset.val) : btn.dataset.val;
       });
     });
   });
@@ -1028,10 +1157,35 @@ function initStartScreen() {
     settings.kpm = parseInt(slider.value);
     kpmVal.textContent = slider.value;
   });
+
+  const fontSelect = document.getElementById('font-opts');
+  if (fontSelect) {
+    fontSelect.addEventListener('change', () => {
+      settings.wordFont = fontSelect.value;
+    });
+  }
+
   document.getElementById('start-btn').addEventListener('click', startGame);
   document.getElementById('retry-btn').addEventListener('click', () => {
     showScreen('start-screen');
   });
+
+  // テーマ：クリック時に即反映
+  const themeEl = document.getElementById('theme-opts');
+  if (themeEl) {
+    themeEl.querySelectorAll('.opt-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        themeEl.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        settings.theme = btn.dataset.val;
+        applyTheme(settings.theme);
+      });
+    });
+  }
+
+  // ページ読み込み時にデフォルトテーマを適用
+  applyTheme(settings.theme);
+
 }
 
 function showScreen(id) {
@@ -1058,6 +1212,9 @@ function selectWords(n, wordLen) {
 
 // ===== GAME INIT =====
 function startGame() {
+  document.documentElement.style.setProperty('--word-font-size', settings.wordFontSize + 'px');
+  document.documentElement.style.setProperty('--word-font', settings.wordFont);
+  applyTheme(settings.theme);
   document.addEventListener('keydown', handleKeydown);
 
   const n = settings.n;
@@ -1066,7 +1223,7 @@ function startGame() {
   G = {
     n,
     cells: [], // flat array of cell data
-    player: { r: 0, c: 0, items: Array(9).fill(null), bomb: false },
+    player: { r: 0, c: 0 },
     cpu: { r: n-1, c: n-1 },
     timeLeft: settings.time,
     combo: 0,
@@ -1076,8 +1233,10 @@ function startGame() {
     playerFrozen: 0,     // ms remaining
     cpuSpeed: 0,         // ms remaining
     cpuFrozen: 0,        // ms remaining
-    playerBombPending: false,
-    cpuBombPending: false,
+    totalKeystrokes: 0,
+    missCount: 0,
+    maxCombo: 0,
+    gameStartTime: 0,
     cpuInput: '',
     cpuTargetWord: '',
     cpuTypedCount: 0,
@@ -1232,7 +1391,6 @@ function renderAll() {
   }
 
   renderHUD();
-  renderItems();
   renderStatus();
 }
 
@@ -1281,6 +1439,14 @@ function createCpuSVG() {
 function renderHUD() {
   const t = Math.ceil(G.timeLeft);
   const el = document.getElementById('timer');
+  const elapsed = (Date.now() - G.gameStartTime) / 60000;
+  const avgKpm = elapsed > 0.001 ? Math.round(G.totalKeystrokes / elapsed) : 0;
+  const kpmEl      = document.getElementById('stat-kpm');
+  const missEl     = document.getElementById('stat-miss');
+  const maxComboEl = document.getElementById('stat-maxcombo');
+  if (kpmEl)      kpmEl.textContent      = avgKpm;
+  if (missEl)     missEl.textContent     = G.missCount;
+  if (maxComboEl) maxComboEl.textContent = G.maxCombo;
   el.textContent = t;
   el.classList.toggle('urgent', t <= 10);
 
@@ -1307,24 +1473,6 @@ function renderHUD() {
   }
 }
 
-function renderItems() {
-  const slotsEl = document.getElementById('item-slots');
-  slotsEl.innerHTML = '';
-  for (let i = 0; i < 9; i++) {
-    const item = G.player.items[i];
-    const slot = document.createElement('div');
-    slot.className = 'item-slot';
-    slot.innerHTML = `
-      <div class="slot-key">${i+1}</div>
-      <div class="slot-icon">${item ? ITEM_ICONS[item] : '·'}</div>
-      <div class="slot-name">${item ? ITEM_NAMES[item] : ''}</div>
-    `;
-    slotsEl.appendChild(slot);
-  }
-  const bombReady = document.getElementById('bomb-ready');
-  bombReady.classList.toggle('active', G.playerBombPending);
-}
-
 function renderStatus() {
   const pSt = document.getElementById('player-status');
   pSt.innerHTML = '';
@@ -1338,12 +1486,6 @@ function renderStatus() {
     const b = document.createElement('div');
     b.className = 'status-badge status-freeze';
     b.textContent = `❄ FROZEN ${(G.playerFrozen/1000).toFixed(1)}s`;
-    pSt.appendChild(b);
-  }
-  if (G.playerBombPending) {
-    const b = document.createElement('div');
-    b.className = 'status-badge status-bomb';
-    b.textContent = '💣 BOMB ARMED';
     pSt.appendChild(b);
   }
 
@@ -1368,27 +1510,35 @@ function getPlayerRange() {
   const range = new Set();
   const r = G.player.r, c = G.player.c;
   const n = G.n;
-  const step = G.playerSpeed > 0 ? 2 : 1;
 
-  if (step === 1) {
-    // 4 directions, 1 step
+  if (G.playerSpeed > 0) {
+    // speed中：上下左右2マス＋斜め1マス
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
+      // 1マス先
+      const nr1 = r+dr, nc1 = c+dc;
+      if (nr1>=0&&nr1<n&&nc1>=0&&nc1<n) range.add(`${nr1},${nc1}`);
+      // 2マス先
+      const nr2 = r+dr*2, nc2 = c+dc*2;
+      if (nr2>=0&&nr2<n&&nc2>=0&&nc2<n) range.add(`${nr2},${nc2}`);
+    });
+    // 斜め1マス
+    [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
       const nr = r+dr, nc = c+dc;
       if (nr>=0&&nr<n&&nc>=0&&nc<n) range.add(`${nr},${nc}`);
     });
   } else {
-    // speed: 4 directions 2 steps + 4 diagonals 1 step
+    // 通常：上下左右1マス
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
-      const nr1=r+dr, nc1=c+dc;
-      if (nr1>=0&&nr1<n&&nc1>=0&&nc1<n) range.add(`${nr1},${nc1}`);
-      const nr2=r+dr*2, nc2=c+dc*2;
-      if (nr2>=0&&nr2<n&&nc2>=0&&nc2<n) range.add(`${nr2},${nc2}`);
-    });
-    [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
-      const nr=r+dr, nc=c+dc;
+      const nr = r+dr, nc = c+dc;
       if (nr>=0&&nr<n&&nc>=0&&nc<n) range.add(`${nr},${nc}`);
     });
   }
+    // 現在地マスも入力可能（ただしCPUの初期位置にいるときは除外）
+   const cpuHome = { r: G.n-1, c: G.n-1 };
+   const atCpuHome = G.player.r === cpuHome.r && G.player.c === cpuHome.c;
+   if (!atCpuHome) {
+     range.add(`${r},${c}`);
+   }
   return range;
 }
 
@@ -1426,33 +1576,25 @@ function paintPath(fromR, fromC, toR, toC, owner) {
 function playerMoveTo(r, c) {
   const fromR = G.player.r, fromC = G.player.c;
 
-  // Paint path
-  paintPath(fromR, fromC, r, c, 1);
+  // Paint path 現在地への移動の場合も必ず自マスを塗る
+  if (fromR === r && fromC === c) {
+    getCell(r, c).owner = 1;
+  } else {
+    paintPath(fromR, fromC, r, c, 1);
+  }
 
   G.player.r = r;
   G.player.c = c;
 
-  // Handle collision with CPU
+  // 衝突
   if (r === G.cpu.r && c === G.cpu.c) {
     G.cpu.r = G.n - 1;
     G.cpu.c = G.n - 1;
     // No paint for warp
   }
 
-  // Pick up item
-  const itemKey = `${r},${c}`;
-  if (G.mapItems[itemKey]) {
-    const type = G.mapItems[itemKey];
-    delete G.mapItems[itemKey];
-    givePlayerItem(type);
-    playItem();
-  }
-
-  // Bomb effect
-  if (G.playerBombPending) {
-    G.playerBombPending = false;
-    triggerBomb(r, c, 1);
-  }
+  // アイテム入手（着地時に即使用）
+  pickupItem(r, c, 1);
 
   playCapture();
   G.input = '';
@@ -1465,9 +1607,10 @@ function playerArrowMove(dr, dc) {
   const n = G.n;
   if (r < 0 || r >= n || c < 0 || c >= n) return;
   const cell = getCell(r, c);
-  if (!cell || cell.owner !== 1) return; // only own territory
+  if (!cell || cell.owner !== 1) return;
   G.player.r = r;
   G.player.c = c;
+  pickupItem(r, c, 1); // 自陣でもアイテム拾える
   renderAll();
 }
 
@@ -1486,52 +1629,58 @@ function usePlayerItem(slotIdx) {
   renderAll();
 }
 
-function applyItem(type, who) {
-  // who: 1=player used it, 2=cpu used it
+function applyItem(type, who, itemR, itemC) {
+  // who: 1=player, 2=cpu
+  // itemR, itemC: アイテムがあったマス座標（beam用）
   switch(type) {
     case 'speed':
-      if (who === 1) { G.playerSpeed = 5000; playTone(600,'sine',0.3); }
-      else { G.cpuSpeed = 5000; playTone(600,'sawtooth',0.2); }
+      if (who === 1) { G.playerSpeed = 10000; playTone(600,'sine',0.3); }
+      else           { G.cpuSpeed   = 10000; playTone(600,'sawtooth',0.2); }
       break;
     case 'freeze':
-      if (who === 1) { G.cpuFrozen = 5000; playFreeze(); }
-      else { G.playerFrozen = 5000; playFreeze(); }
+      if (who === 1) { G.cpuFrozen    = 5000; playFreeze(); }
+      else           { G.playerFrozen = 5000; playFreeze(); }
       break;
     case 'bomb':
-      if (who === 1) { G.playerBombPending = true; }
-      else { G.cpuBombPending = true; }
+      triggerBomb(who);
       break;
     case 'meteor':
       triggerMeteor(who);
       break;
+    case 'banish':
+      triggerBanish(who);
+      break;
+    case 'beam':
+      triggerBeam(who, itemR, itemC);
+      break;
+    case 'missile':
+      triggerMissile(who, itemR, itemC);
+      break;
   }
 }
 
-function triggerBomb(r, c, owner) {
+function triggerBomb(owner) {
   const n = G.n;
-  const targets = [];
+  const enemyPos  = owner === 1 ? G.cpu    : G.player;
+  const enemyHome = owner === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
+  const br = enemyPos.r, bc = enemyPos.c;
+
+  // 敵の現在位置 + 周囲8マスを塗り替え
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
-      const nr = r+dr, nc = c+dc;
-      if (nr>=0&&nr<n&&nc>=0&&nc<n) {
-        targets.push({r:nr,c:nc});
-        if (getCell(nr,nc).owner !== owner) {
-          getCell(nr,nc).owner = owner;
-        }
-      }
+      const nr = br+dr, nc = bc+dc;
+      if (nr>=0&&nr<n&&nc>=0&&nc<n) getCell(nr,nc).owner = owner;
     }
   }
-  // Warp opponent if in range
-  const enemyOwner = owner === 1 ? 2 : 1;
-  const enemyPos = owner === 1 ? G.cpu : G.player;
-  const enemyHome = owner === 1 ? {r: G.n-1, c: G.n-1} : {r:0,c:0};
-  if (targets.some(t => t.r === enemyPos.r && t.c === enemyPos.c)) {
-    enemyPos.r = enemyHome.r;
-    enemyPos.c = enemyHome.c;
-  }
+
+  // 敵を強制的に初期位置へ
+  enemyPos.r = enemyHome.r;
+  enemyPos.c = enemyHome.c;
+  // プレイヤーがワープした場合は入力リセット
+  if (owner === 2) G.input = ''; // CPUが使った場合＝プレイヤーがワープ
+
   playExplosion();
-  // Visual explosion
-  const el = document.getElementById(`cell-${r}-${c}`);
+  const el = document.getElementById(`cell-${br}-${bc}`);
   if (el) {
     const ex = document.createElement('div');
     ex.className = 'explosion';
@@ -1542,30 +1691,101 @@ function triggerBomb(r, c, owner) {
 
 function triggerMeteor(who) {
   const n = G.n;
-  const all = [];
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) all.push({r,c});
-  // Shuffle and pick 8
-  for (let i = all.length-1; i > 0; i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    [all[i],all[j]] = [all[j],all[i]];
-  }
-  const targets = all.slice(0,8);
-  const owner = who;
   const enemy = who === 1 ? 2 : 1;
-  targets.forEach(({r,c}) => {
-    const cell = getCell(r,c);
-    if (cell.owner === enemy) { // only convert enemy cells
-      cell.owner = owner;
-    }
-    // own cells: nothing happens
-    // neutral: nothing
-  });
+
+  // 敵陣地のみを対象に収集
+  const enemyCells = [];
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (getCell(r,c).owner === enemy) enemyCells.push({r,c});
+
+  // シャッフルして最大9マス選択
+  for (let i = enemyCells.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [enemyCells[i],enemyCells[j]] = [enemyCells[j],enemyCells[i]];
+  }
+  enemyCells.slice(0, 9).forEach(({r,c}) => { getCell(r,c).owner = who; });
+
   playMeteor();
-  // Flash overlay
   const overlay = document.createElement('div');
   overlay.className = 'meteor-overlay';
   document.body.appendChild(overlay);
   setTimeout(() => overlay.remove(), 800);
+}
+
+// BANISH：敵をランダムなマスへ強制転移
+function triggerBanish(who) {
+  const n = G.n;
+  const enemyPos = who === 1 ? G.cpu : G.player;
+  const all = [];
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (r !== enemyPos.r || c !== enemyPos.c) all.push({r,c});
+  const dest = all[Math.floor(Math.random() * all.length)];
+  enemyPos.r = dest.r;
+  enemyPos.c = dest.c;
+  if (who === 2) G.input = ''; // プレイヤーが転移させられた場合
+  playTone(800, 'sine', 0.3, 0.4);
+}
+
+// MISSILE：斜め方向の全マスを塗り替え・敵がいたらワープ
+function triggerMissile(who, itemR, itemC) {
+  const n = G.n;
+  const enemyPos  = who === 1 ? G.cpu    : G.player;
+  const enemyHome = who === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
+  let hitEnemy = false;
+
+  // 4つの斜め方向それぞれ端まで
+  [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
+    let r = itemR + dr, c = itemC + dc;
+    while (r >= 0 && r < n && c >= 0 && c < n) {
+      getCell(r, c).owner = who;
+      if (r === enemyPos.r && c === enemyPos.c) hitEnemy = true;
+      r += dr;
+      c += dc;
+    }
+  });
+
+  if (hitEnemy) { enemyPos.r = enemyHome.r; enemyPos.c = enemyHome.c; }
+  playTone(400,'sawtooth',0.1);
+  setTimeout(() => playTone(800,'sine',0.15), 150);
+  setTimeout(() => playTone(1200,'sine',0.1), 300);
+}
+
+// ION CANNON：アイテムマスの上下左右を強制塗り替え・敵がいたらワープ
+function triggerBeam(who, itemR, itemC) {
+  const n = G.n;
+  const enemyPos  = who === 1 ? G.cpu    : G.player;
+  const enemyHome = who === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
+  let hitEnemy = false;
+
+  // 同じ行（横ライン）全マス
+  for (let c = 0; c < n; c++) {
+    if (c === itemC) continue; // アイテムマス自体はスキップ
+    getCell(itemR, c).owner = who;
+    if (itemR === enemyPos.r && c === enemyPos.c) hitEnemy = true;
+  }
+  // 同じ列（縦ライン）全マス
+  for (let r = 0; r < n; r++) {
+    if (r === itemR) continue; // 横ラインと重複するのでスキップ
+    getCell(r, itemC).owner = who;
+    if (r === enemyPos.r && itemC === enemyPos.c) hitEnemy = true;
+  }
+
+  if (hitEnemy) { enemyPos.r = enemyHome.r; enemyPos.c = enemyHome.c; }
+  playTone(300,'sawtooth',0.2);
+  setTimeout(() => playTone(600,'sine',0.15), 100);
+  setTimeout(() => playTone(1200,'sine',0.1), 200);
+}
+
+function pickupItem(r, c, who) {
+  const itemKey = `${r},${c}`;
+  if (G.mapItems[itemKey]) {
+    const type = G.mapItems[itemKey];
+    delete G.mapItems[itemKey];
+    applyItem(type, who, r, c);
+    playItem();
+  }
 }
 
 // ===== ITEM SPAWNING =====
@@ -1590,29 +1810,16 @@ function spawnItem() {
 function handleKeydown(e) {
   if (!G.running) return;
 
-  // 数字キー（アイテム使用）
-  if (e.key >= '1' && e.key <= '9') {
-    usePlayerItem(parseInt(e.key)-1);
-    return;
-  }
-
-  // 矢印キー
+  // 矢印キー（Shift+IJKL対応）
   const arrowDirMap = {
-    ArrowUp:   [-1, 0],
-    ArrowDown: [ 1, 0],
-    ArrowLeft: [ 0,-1],
-    ArrowRight:[ 0, 1],
-    // Shift+I/J/L/, のエイリアス
-    I: [-1, 0],
-    J: [ 0,-1],
-    L: [ 0, 1],
-    '<': [ 1, 0], // Shift+, = '<'
+    ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1],
+    I:[-1,0], J:[0,-1], L:[0,1], '<':[1,0],
   };
 
   if (e.key in arrowDirMap && (e.key.startsWith('Arrow') || e.shiftKey)) {
     e.preventDefault();
     if (G.playerFrozen > 0) return;
-    const [dr, dc] = arrowDirMap[e.key];
+    const [dr,dc] = arrowDirMap[e.key];
     playerArrowMove(dr, dc);
     return;
   }
@@ -1621,7 +1828,6 @@ function handleKeydown(e) {
   if (e.key === 'Escape' || e.key === 'Backspace') {
     e.preventDefault();
     G.input = '';
-    G.combo = 0;
     renderAll();
     return;
   }
@@ -1631,6 +1837,7 @@ function handleKeydown(e) {
   // スペースキー：単語確定
   if (e.key === ' ') {
     e.preventDefault();
+    G.totalKeystrokes++; // スペースもKPMに計上
     const reachable = getPlayerRange();
     let matched = null;
     reachable.forEach(key => {
@@ -1639,9 +1846,11 @@ function handleKeydown(e) {
       if (cell && cell.word === G.input) matched = {r,c};
     });
     if (matched) {
+      G.combo++;
+      if (G.combo > G.maxCombo) G.maxCombo = G.combo;
       playerMoveTo(matched.r, matched.c);
     } else {
-      // 単語が完成していない状態でスペース → ミス扱い
+      G.missCount++;
       playMiss();
       const el = document.getElementById('input-display');
       el.classList.add('wrong');
@@ -1653,6 +1862,7 @@ function handleKeydown(e) {
   // a-z タイピング
   if (/^[a-z]$/.test(e.key)) {
     e.preventDefault();
+    G.totalKeystrokes++; // 全キー入力をカウント
     const newInput = G.input + e.key;
     const reachable = getPlayerRange();
 
@@ -1666,23 +1876,42 @@ function handleKeydown(e) {
 
     if (!hasCandidate) {
       // ミス：入力は残したまま、ミス音だけ鳴らす
+      G.missCount++;
       G.combo = 0;
       playMiss();
       const el = document.getElementById('input-display');
       el.classList.add('wrong');
       setTimeout(() => el.classList.remove('wrong'), 200);
-      renderAll(); // 表示は現状維持（G.inputは変えない）
+      renderAll();
       return;
     }
 
     // 正しい入力
     G.input = newInput;
     G.combo++;
-    playType();
+    if (G.combo > G.maxCombo) G.maxCombo = G.combo;
 
+    // 50コンボごとにCPUを強制転移
+    if (G.combo % 50 === 0) triggerBanish(1);
+
+    playType();
     const cd = document.getElementById('combo-display');
     cd.classList.add('bump');
     setTimeout(() => cd.classList.remove('bump'), 100);
+
+    // speed中は半分打った時点で即移動
+    if (G.playerSpeed > 0) {
+      const reachable = getPlayerRange();
+      let matched = null;
+      reachable.forEach(key => {
+        const [r,c] = key.split(',').map(Number);
+        const cell = getCell(r,c);
+        if (!cell) return;
+        const w = cell.word;
+        if (w.startsWith(G.input) && G.input.length >= required) matched = {r,c};
+      });
+      if (matched) { playerMoveTo(matched.r, matched.c); return; }
+    }
 
     renderAll();
   }
@@ -1691,6 +1920,7 @@ function handleKeydown(e) {
 // ===== TIMER =====
 function startTimers() {
   G.running = true;
+  G.gameStartTime = Date.now();
   G.lastFrame = performance.now();
 
   G.timerInterval = setInterval(() => {
@@ -1718,11 +1948,35 @@ function gameLoop(now) {
   const dt = now - lastLoopTime;
   lastLoopTime = now;
 
-  // Update timers
+  // speed切れ検知（切れた瞬間に入力をリセット）
+  const wasSpeed = G.playerSpeed > 0;
+
   if (G.playerSpeed > 0) G.playerSpeed = Math.max(0, G.playerSpeed - dt);
   if (G.playerFrozen > 0) G.playerFrozen = Math.max(0, G.playerFrozen - dt);
   if (G.cpuSpeed > 0) G.cpuSpeed = Math.max(0, G.cpuSpeed - dt);
   if (G.cpuFrozen > 0) G.cpuFrozen = Math.max(0, G.cpuFrozen - dt);
+
+  // speed が切れた瞬間：通常範囲外のマスが対象になっている入力をリセット
+  if (wasSpeed && G.playerSpeed === 0 && G.input) {
+    const normalRange = new Set();
+    const r = G.player.r, c = G.player.c;
+    const n = G.n;
+    [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
+      const nr=r+dr, nc=c+dc;
+      if (nr>=0&&nr<n&&nc>=0&&nc<n) normalRange.add(`${nr},${nc}`);
+    });
+    // 現在地（CPUホーム以外）も対象
+    const cpuHome = {r: G.n-1, c: G.n-1};
+    if (!(G.player.r === cpuHome.r && G.player.c === cpuHome.c)) normalRange.add(`${r},${c}`);
+
+    let stillValid = false;
+    normalRange.forEach(key => {
+      const [nr,nc] = key.split(',').map(Number);
+      const cell = getCell(nr,nc);
+      if (cell && cell.word.startsWith(G.input)) stillValid = true;
+    });
+    if (!stillValid) G.input = '';
+  }
 
   renderStatus();
   requestAnimationFrame(gameLoop);
@@ -1759,7 +2013,7 @@ function chooseCpuTarget() {
   const step = G.cpuSpeed > 0 ? 2 : 1;
 
   // Get reachable cells for CPU
-  const reachable = getCpuReachable(step);
+  const reachable = getCpuReachable();
 
   if (!reachable.length) return null;
 
@@ -1792,28 +2046,22 @@ function chooseCpuTarget() {
   return null;
 }
 
-function getCpuReachable(step) {
+function getCpuReachable() {
   const r = G.cpu.r, c = G.cpu.c;
   const n = G.n;
   const result = [];
+  [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
+    const nr=r+dr, nc=c+dc;
+    if (nr>=0&&nr<n&&nc>=0&&nc<n) result.push({r:nr,c:nc});
+  });
 
-  if (step === 1) {
-    [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
-      const nr=r+dr, nc=c+dc;
-      if (nr>=0&&nr<n&&nc>=0&&nc<n) result.push({r:nr,c:nc});
-    });
-  } else {
-    [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
-      const nr1=r+dr, nc1=c+dc;
-      if (nr1>=0&&nr1<n&&nc1>=0&&nc1<n) result.push({r:nr1,c:nc1});
-      const nr2=r+dr*2, nc2=c+dc*2;
-      if (nr2>=0&&nr2<n&&nc2>=0&&nc2<n) result.push({r:nr2,c:nc2});
-    });
-    [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
-      const nr=r+dr, nc=c+dc;
-      if (nr>=0&&nr<n&&nc>=0&&nc<n) result.push({r:nr,c:nc});
-    });
+  // 現在地マスも入力可能（ただしプレイヤーの初期位置にいるときは除外）
+  const playerHome = { r: 0, c: 0 };
+  const atPlayerHome = G.cpu.r === playerHome.r && G.cpu.c === playerHome.c;
+  if (!atPlayerHome) {
+    result.push({ r, c });
   }
+
   return result;
 }
 
@@ -1853,36 +2101,30 @@ async function cpuTypeWord(target) {
   if (!cell) return;
   const word = cell.word;
 
-  // Calculate ms per character
-  const kpm = G.cpuSpeed > 0 ? G.kpm * 2 : G.kpm;
+  const kpm = G.cpuSpeed > 0 ? G.kpm * 1.5 : G.kpm;
   const msPerChar = 60000 / kpm;
+  const required = word.length; // CPUはspeedでもフル入力（速度だけ上がる）
 
   G.cpuInput = '';
 
-  for (let i = 0; i < word.length; i++) {
+  for (let i = 0; i < required; i++) {
     if (!G.running) return;
     if (G.cpuFrozen > 0) {
-      // Wait while frozen
       while (G.cpuFrozen > 0 && G.running) await sleep(100);
     }
     if (!G.running) return;
-
     G.cpuInput = word.slice(0, i+1);
     renderAll();
-
     await sleep(msPerChar);
   }
 
   // ワープ等で位置が変わっていた場合、targetが到達可能か再確認
-  const step = G.cpuSpeed > 0 ? 2 : 1;
-  const reachable = getCpuReachable(step);
-  const stillReachable = reachable.some(({r, c}) => r === target.r && c === target.c);
+  const reachable = getCpuReachable();
+  const stillReachable = reachable.some(({r,c}) => r===target.r && c===target.c);
 
-  if (!stillReachable) {
+
     // 到達不可能になっていたら移動キャンセル
-    G.cpuInput = '';
-    return;
-  }
+  if (!stillReachable) { G.cpuInput = ''; return; }
 
   cpuMoveTo(target.r, target.c);
   G.cpuInput = '';
@@ -1909,19 +2151,7 @@ function cpuMoveTo(r, c) {
 
   // Pick up item
   const itemKey = `${r},${c}`;
-  if (G.mapItems[itemKey]) {
-    const type = G.mapItems[itemKey];
-    delete G.mapItems[itemKey];
-    // CPU uses immediately
-    applyItem(type, 2);
-    playItem();
-  }
-
-  // Bomb
-  if (G.cpuBombPending) {
-    G.cpuBombPending = false;
-    triggerBomb(r, c, 2);
-  }
+  pickupItem(r, c, 2);
 
   renderAll();
 }
@@ -1944,6 +2174,11 @@ function endGame() {
 
   document.getElementById('result-player').textContent = `Player: ${pScore}`;
   document.getElementById('result-cpu').textContent = `CPU: ${cScore}`;
+  const elapsed = (Date.now() - G.gameStartTime) / 60000;
+  const avgKpm = elapsed > 0.001 ? Math.round(G.totalKeystrokes / elapsed) : 0;
+  document.getElementById('result-kpm').textContent      = avgKpm;
+  document.getElementById('result-miss').textContent     = G.missCount;
+  document.getElementById('result-maxcombo').textContent = G.maxCombo;
 
   setTimeout(() => showScreen('end-screen'), 800);
 }
