@@ -4,6 +4,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Inconsolata:wght@400;700&family=Nunito:wght@400;700&family=Rajdhani:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TYPE WARS — Typing Territory Battle</title>
@@ -357,17 +360,39 @@ body::before {
   color: var(--text-dim);
   letter-spacing: 0;
   text-align: center;
-  white-space: nowrap;      /* 改行禁止 */
-  overflow: hidden;         /* はみ出し非表示 */
-  text-overflow: ellipsis;  /* はみ出したら… */
   width: 100%;
   padding: 0 2px;
   position: relative;
   z-index: 2;
   user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cell-word-romaji {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: center;
 }
 .cell-word .typed { color: var(--accent); }
 .cell-word .remaining { color: var(--text-dim); }
+
+.cell-ja {
+  font-size: calc(var(--word-font-size) * 0.85);
+  font-family: sans-serif;
+  color: var(--text);
+  text-align: center;
+  width: 100%;
+  padding: 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  z-index: 2;
+  line-height: 1.2;
+}
 
 .space-prompt {
   color: var(--accent);
@@ -613,6 +638,180 @@ body::before {
 .legend-item { display: flex; align-items: center; gap: 5px; }
 .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
 
+/* ===== METEOR CELL EFFECT ===== */
+.meteor-hit {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  animation: meteorHit 0.6s ease-out forwards;
+}
+@keyframes meteorHit {
+  0%   { transform: scale(2.2) translateY(-8px); opacity: 0; }
+  20%  { transform: scale(1.0) translateY(0);    opacity: 1; }
+  60%  { transform: scale(1.0);                  opacity: 1; }
+  100% { transform: scale(0.8);                  opacity: 0; }
+}
+
+/* ===== BANISH EFFECT ===== */
+.banish-out {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  animation: banishOut 0.5s ease-in forwards;
+}
+@keyframes banishOut {
+  0%   { transform: scale(1);   opacity: 1; }
+  50%  { transform: scale(1.6); opacity: 0.6; filter: blur(2px); }
+  100% { transform: scale(0);   opacity: 0; }
+}
+
+.banish-in {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  animation: banishIn 0.5s ease-out forwards;
+}
+@keyframes banishIn {
+  0%   { transform: scale(0);   opacity: 0; }
+  50%  { transform: scale(1.6); opacity: 0.6; filter: blur(2px); }
+  100% { transform: scale(1);   opacity: 0; }
+}
+
+/* ===== BEAM EFFECT ===== */
+.beam-hit {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  z-index: 20;
+  pointer-events: none;
+  animation: beamFlash 0.35s ease-out forwards;
+}
+.beam-hit.beam-h { background: linear-gradient(90deg, transparent, #fff8, transparent); }
+.beam-hit.beam-v { background: linear-gradient(180deg, transparent, #fff8, transparent); }
+@keyframes beamFlash {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* ===== MISSILE EFFECT ===== */
+.missile-icon {
+  position: absolute;
+  font-size: 22px;
+  z-index: 30;
+  pointer-events: none;
+  animation: missilePop 0.25s ease-out forwards;
+  transform-origin: center;
+}
+@keyframes missilePop {
+  0%   { transform: scale(0.4) rotate(var(--missile-rot)); opacity: 1; }
+  60%  { transform: scale(1.3) rotate(var(--missile-rot)); opacity: 1; }
+  100% { transform: scale(1.0) rotate(var(--missile-rot)); opacity: 0; }
+}
+
+/* ===== COUNTDOWN OVERLAY ===== */
+.countdown-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.countdown-number {
+  font-family: var(--font-display);
+  font-size: 160px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #fff;
+  text-shadow: 0 0 60px var(--player-glow), 0 0 120px var(--player-glow);
+  animation: countPop 0.9s ease-out forwards;
+}
+.countdown-number.go {
+  font-size: 100px;
+  letter-spacing: 12px;
+  color: var(--accent);
+  text-shadow: 0 0 60px #a0ff8088, 0 0 120px #a0ff8088;
+}
+
+@keyframes countPop {
+  0%   { transform: scale(1.8); opacity: 0; }
+  20%  { transform: scale(1.0); opacity: 1; }
+  70%  { transform: scale(1.0); opacity: 1; }
+  100% { transform: scale(0.6); opacity: 0; }
+}
+
+/* ===== CHARACTER SELECT SCREEN ===== */
+#char-select-screen {
+  background: radial-gradient(ellipse at 50% 40%, #1a1a3a 0%, var(--bg) 70%);
+  gap: 32px;
+  padding: 40px 20px;
+}
+
+.char-grid {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 900px;
+}
+
+.char-card {
+  background: var(--bg2);
+  border: 2px solid var(--bg3);
+  border-radius: 10px;
+  padding: 16px 12px 12px;
+  width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.char-card:hover {
+  border-color: var(--player-color);
+  box-shadow: 0 0 16px var(--player-glow);
+}
+.char-card.selected {
+  border-color: var(--player-color);
+  background: var(--player-dim);
+  box-shadow: 0 0 28px var(--player-glow);
+}
+.char-card svg {
+  width: 100px;
+  height: 68px;
+}
+.char-card-name {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.char-card.selected .char-card-name {
+  color: var(--text);
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 800px) {
   :root { --cell-size: 72px; }
@@ -633,6 +832,14 @@ body::before {
   <div class="subtitle">Typing Territory Battle</div>
 
   <div class="settings-panel">
+    <div class="setting-group">
+      <div class="setting-label">Language</div>
+      <div class="btn-group" id="lang-opts">
+        <button class="opt-btn selected" data-val="en">English</button>
+        <button class="opt-btn" data-val="ja">日本語</button>
+      </div>
+    </div>
+
     <div class="setting-group">
       <div class="setting-label">Map Size</div>
       <div class="btn-group" id="size-opts">
@@ -715,14 +922,41 @@ body::before {
         <button class="opt-btn" data-val="0">∞</button>
       </div>
     </div>
+
+    <div class="setting-group">
+      <div class="setting-label">Initial Items</div>
+      <div class="btn-group" id="init-items-opts">
+        <button class="opt-btn" data-val="1">1</button>
+        <button class="opt-btn selected" data-val="2">2</button>
+        <button class="opt-btn" data-val="3">3</button>
+        <button class="opt-btn" data-val="4">4</button>
+        <button class="opt-btn" data-val="5">5</button>
+      </div>
+    </div>
   </div>
 
-  <button class="start-btn" id="start-btn">START GAME</button>
+  <div style="display:flex; gap:12px; margin-top:8px;">
+    <button class="start-btn" id="start-btn">VS CPU</button>
+    <button class="start-btn" id="online-btn" 
+      style="background:linear-gradient(135deg,#a0ff80,#40cc40); color:#000;">
+      VS PLAYER
+    </button>
+  </div>
 
   <div class="legend">
     <div class="legend-item"><div class="legend-dot" style="background:var(--player-dim)"></div> Player</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--cpu-dim)"></div> CPU</div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--neutral)"></div> Neutral</div>
+  </div>
+</div>
+
+<!-- ===== CHAR SELECT SCREEN ===== -->
+<div id="char-select-screen" class="screen">
+  <div class="game-title" style="font-size:clamp(22px,4vw,44px);letter-spacing:6px">CHOOSE YOUR CHARACTER</div>
+  <div class="char-grid" id="char-grid"></div>
+  <div style="display:flex;gap:12px;">
+    <button class="retry-btn" id="char-back-btn">BACK</button>
+    <button class="start-btn" id="char-confirm-btn">CONFIRM</button>
   </div>
 </div>
 
@@ -826,6 +1060,43 @@ body::before {
    TYPE WARS — Complete Game Logic
    ============================================================ */
 (function() {
+
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAXNZXQaXIgn-MuHRUn6qiPaBubU45vu8U",
+  authDomain: "typewars-5ecf8.firebaseapp.com",
+  databaseURL: "https://typewars-5ecf8-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "typewars-5ecf8",
+  storageBucket: "typewars-5ecf8.firebasestorage.app",
+  messagingSenderId: "264118414567",
+  appId: "1:264118414567:web:aa37f590b39f3d2cebc642"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+// 匿名認証（ユーザーに見えない・操作不要）
+auth.signInAnonymously().catch(() => {});
+
+// VS PLAYER ボタンは認証完了まで無効化
+auth.onAuthStateChanged(user => {
+  const btn = document.getElementById('online-btn');
+  if (btn) {
+    btn.disabled = !user;
+    btn.style.opacity = user ? '1' : '0.4';
+  }
+});
+
+// ブラウザを閉じたときにルームを削除
+window.addEventListener('beforeunload', () => {
+  if (roomId) db.ref(`rooms/${roomId}`).remove();
+});
+
+let myRole = null;   // 'player1' or 'player2'
+let roomId = null;
+let isOnline = false;
+
 'use strict';
 
 // ===== WORD LIST (300+ unique words of varying lengths) =====
@@ -1030,6 +1301,576 @@ const WORD_BANK = [
   "worker","writer","yellow"
 ].filter(w => /^[a-z]+$/.test(w));
 
+// ===== JAPANESE WORD BANK =====
+const WORD_BANK_JA = [
+  // 3文字ローマ字 (146語)
+  { ja:'赤',   kana:'あか',   romaji:'aka'  },
+  { ja:'秋',   kana:'あき',   romaji:'aki'  }, 
+  { ja:'悪',   kana:'あく', romaji:'aku' },
+  { ja:'あけ',   kana:'あけ', romaji:'ake' },
+  { ja:'朝',   kana:'あさ',   romaji:'asa'  },
+  { ja:'あす', kana:'あす', romaji:'asu' },
+  { ja:'汗',   kana:'あせ', romaji:'ase' },
+  { ja:'あそ', kana:'あそ', romaji:'aso' },
+  { ja:'あと',   kana:'あと', romaji:'ato' },
+  { ja:'穴',   kana:'あな', romaji:'ana' },
+  { ja:'兄',   kana:'あに', romaji:'ani' },
+  { ja:'姉',   kana:'あね', romaji:'ane' },
+  { ja:'あの',   kana:'あの', romaji:'ano' },
+  { ja:'アホ',   kana:'あほ', romaji:'aho' },
+  { ja:'あま',   kana:'あま', romaji:'ama' },
+  { ja:'網',   kana:'あみ',   romaji:'ami'  }, 
+  { ja:'編む',   kana:'あむ',   romaji:'amu'  }, 
+  { ja:'雨',   kana:'あめ',   romaji:'ame'  },
+  { ja:'アユ',   kana:'あゆ', romaji:'ayu' },
+  { ja:'アリ',   kana:'あり',   romaji:'ari'  },
+  { ja:'ある',   kana:'ある',   romaji:'aru'  },
+  { ja:'あれ',   kana:'あれ',   romaji:'are'  },
+  { ja:'泡',   kana:'あわ',   romaji:'awa'  },
+  { ja:'揚げ', kana:'あげ',   romaji:'age'  },
+  { ja:'あご', kana:'あご',   romaji:'ago'  },
+  { ja:'アザ', kana:'あざ',   romaji:'aza'  },
+  { ja:'味',   kana:'あじ',   romaji:'aji'  },
+
+  { ja:'イカ',   kana:'いか',   romaji:'ika'  },
+  { ja:'いき',   kana:'いき',   romaji:'iki'  },
+  { ja:'行く',   kana:'いく',   romaji:'iku'  },
+  { ja:'池',   kana:'いけ',   romaji:'ike'  },
+  { ja:'椅子', kana:'いす',   romaji:'isu'  },
+  { ja:'伊勢', kana:'いせ',   romaji:'ise'  },
+  { ja:'イソ', kana:'いそ',   romaji:'iso'  },
+  { ja:'板', kana:'いた',   romaji:'ita'  },
+  { ja:'いて', kana:'いて',   romaji:'ite'  },
+  { ja:'糸',   kana:'いと',   romaji:'ito'  },
+  { ja:'犬', kana:'いぬ',   romaji:'inu'  },
+  { ja:'稲',   kana:'いね',   romaji:'ine'  },
+  { ja:'今',   kana:'いま',   romaji:'ima'  },
+  { ja:'意味',   kana:'いみ',   romaji:'imi'  },
+  { ja:'芋',   kana:'いも',   romaji:'imo'  },
+  { ja:'いや',   kana:'いや',   romaji:'iya'  },
+  { ja:'いる',   kana:'いる',   romaji:'iru'  },
+  { ja:'色',   kana:'いろ',   romaji:'iro'  },
+  { ja:'岩',   kana:'いわ',   romaji:'iwa'  },
+  { ja:'いざ',   kana:'いざ',   romaji:'iza'  },
+  { ja:'維持',   kana:'いじ',   romaji:'iji'  },
+  { ja:'伊豆',   kana:'いず',   romaji:'izu'  },
+  { ja:'井戸', kana:'いど', romaji:'ido' },
+
+  { ja:'羽化',   kana:'うか',   romaji:'uka'  }, 
+  { ja:'雨季',   kana:'うき',   romaji:'uki'  }, 
+  { ja:'浮く',   kana:'うく',   romaji:'uku'  }, 
+  { ja:'うす',   kana:'うす',   romaji:'usu'  }, 
+  { ja:'嘘',   kana:'うそ',   romaji:'uso'  }, 
+  { ja:'歌',   kana:'うた',   romaji:'uta'  },
+  { ja:'打て',   kana:'うて',   romaji:'ute'  }, 
+  { ja:'ウニ',   kana:'うに',   romaji:'uni'  }, 
+  { ja:'うね',   kana:'うね',   romaji:'une'  }, 
+  { ja:'馬',   kana:'うま',   romaji:'uma'  }, 
+  { ja:'海',   kana:'うみ',   romaji:'umi'  },
+  { ja:'生む',   kana:'うむ',   romaji:'umu'  },
+  { ja:'梅',   kana:'うめ',   romaji:'ume'  },
+  { ja:'裏',   kana:'うら', romaji:'ura' },
+  { ja:'瓜',   kana:'うり', romaji:'uri' },
+  { ja:'売る',   kana:'うる', romaji:'uru' },
+  { ja:'うろ',   kana:'うろ', romaji:'uro' },
+  { ja:'雨後',   kana:'うご', romaji:'ugo' },
+  { ja:'宇治',   kana:'うじ', romaji:'uji' },
+  { ja:'腕',   kana:'うで', romaji:'ude' },
+  { ja:'ウド',   kana:'うど', romaji:'udo' },
+  { ja:'乳母',   kana:'うば', romaji:'uba' },
+
+  { ja:'駅',   kana:'えき',   romaji:'eki'  },
+  { ja:'餌',   kana:'えさ',   romaji:'esa'  },
+  { ja:'エセ',   kana:'えせ',   romaji:'ese'  },
+  { ja:'干支',   kana:'えと',   romaji:'eto'  },
+  { ja:'絵馬',   kana:'えま',   romaji:'ema'  },
+  { ja:'笑み',   kana:'えみ',   romaji:'emi'  },
+  { ja:'エラ',   kana:'えら',   romaji:'era'  },
+  { ja:'えり',   kana:'えり',   romaji:'eri'  },
+  { ja:'得る',   kana:'える',   romaji:'eru'  },
+  { ja:'エゴ',   kana:'えご',   romaji:'ego'  },
+  { ja:'枝',   kana:'えだ',   romaji:'eda'  },
+  { ja:'江戸',   kana:'えど',   romaji:'edo'  },
+
+  { ja:'丘',   kana:'おか',   romaji:'oka'  },
+  { ja:'置く',   kana:'おく', romaji:'oku' },
+  { ja:'おけ',   kana:'おけ', romaji:'oke' },
+  { ja:'おさ',   kana:'おさ', romaji:'osa' },
+  { ja:'押す',   kana:'おす', romaji:'osu' },
+  { ja:'音',   kana:'おと',   romaji:'oto'  },
+  { ja:'鬼',   kana:'おに',   romaji:'oni'  }, 
+  { ja:'尾根', kana:'おね', romaji:'one' },
+  { ja:'斧',   kana:'おの',   romaji:'ono'  }, 
+  { ja:'親',   kana:'おや', romaji:'oya' },
+  { ja:'お湯',   kana:'おゆ', romaji:'oyu' },
+  { ja:'オラ',   kana:'おら', romaji:'ora' },
+  { ja:'檻',   kana:'おり', romaji:'ori' },
+  { ja:'折る',   kana:'おる', romaji:'oru' },
+  { ja:'叔父',   kana:'おじ', romaji:'oji' },
+  { ja:'織田',   kana:'おだ', romaji:'oda' },
+  { ja:'叔母',   kana:'おば', romaji:'oba' },
+  { ja:'帯',   kana:'おび', romaji:'obi' },
+
+  { ja:'缶',   kana:'かん', romaji:'kan' },
+  { ja:'金',   kana:'きん', romaji:'kin' },
+  { ja:'三',   kana:'さん', romaji:'san' },
+  { ja:'点',   kana:'てん', romaji:'ten' },
+  { ja:'万',   kana:'まん', romaji:'man' },
+  { ja:'麺',   kana:'めん', romaji:'men' },
+  { ja:'門',   kana:'もん', romaji:'mon' },
+
+  { ja:'貝',   kana:'かい',   romaji:'kai'  },
+  { ja:'買う',   kana:'かう',   romaji:'kau'  },
+  { ja:'奇異', kana:'きい', romaji:'kii' },
+  { ja:'杭', kana:'くい', romaji:'kui' },
+  { ja:'食う', kana:'くう', romaji:'kuu' },
+  { ja:'刑', kana:'けい', romaji:'kei' },
+  { ja:'故意',   kana:'こい',   romaji:'koi'  },
+  { ja:'乞う', kana:'こう', romaji:'kou' },
+  { ja:'声',   kana:'こえ',   romaji:'koe'  },
+  { ja:'サイ', kana:'さい', romaji:'sai' },
+  { ja:'吸う',   kana:'すう',   romaji:'suu'  }, 
+  { ja:'姓', kana:'せい', romaji:'sei' },
+  { ja:'層', kana:'そう', romaji:'sou' },
+  { ja:'鯛', kana:'たい', romaji:'tai' },
+  { ja:'問い',   kana:'とい',   romaji:'toi'  }, 
+  { ja:'塔',   kana:'とう',   romaji:'tou'  },
+  { ja:'ない', kana:'ない', romaji:'nai' },
+  { ja:'ぬう',   kana:'ぬう',   romaji:'nuu'  }, 
+  { ja:'脳', kana:'のう', romaji:'nou' },
+  { ja:'はい',   kana:'はい',   romaji:'hai'  }, 
+  { ja:'笛',   kana:'ふえ',   romaji:'fue'  }, 
+  { ja:'法', kana:'ほう', romaji:'hou' },
+  { ja:'舞', kana:'まい', romaji:'mai' },
+  { ja:'舞う', kana:'まう', romaji:'mau' },
+  { ja:'前',   kana:'まえ',   romaji:'mae'  }, 
+  { ja:'三重', kana:'みえ', romaji:'mie' },
+  { ja:'姪', kana:'めい', romaji:'mei' },
+  { ja:'もう', kana:'もう', romaji:'mou' },
+  { ja:'萌え', kana:'もえ', romaji:'moe' },
+  { ja:'良い', kana:'よい', romaji:'yoi' },
+  { ja:'酔う', kana:'よう', romaji:'you' },
+  { ja:'礼',   kana:'れい', romaji:'rei' },
+  { ja:'害', kana:'がい', romaji:'gai' },
+  { ja:'芸', kana:'げい', romaji:'gei' },
+  { ja:'語彙', kana:'ごい', romaji:'goi' },
+  { ja:'台', kana:'だい', romaji:'dai' },
+  { ja:'銅', kana:'どう', romaji:'dou' },
+  { ja:'倍', kana:'ばい', romaji:'bai' },
+  { ja:'映え', kana:'ばえ', romaji:'bae' },
+  { ja:'パイ', kana:'ぱい', romaji:'pai' },
+
+  // 4文字ローマ字 (83語)
+  { ja:'花',   kana:'はな',   romaji:'hana' }, { ja:'雪',   kana:'ゆき',   romaji:'yuki' },
+  { ja:'風',   kana:'かぜ',   romaji:'kaze' }, { ja:'春',   kana:'はる',   romaji:'haru' },
+  { ja:'冬',   kana:'ふゆ',   romaji:'fuyu' }, { ja:'夜',   kana:'よる',   romaji:'yoru' },
+  { ja:'空',   kana:'そら',   romaji:'sora' }, { ja:'森',   kana:'もり',   romaji:'mori' },
+  { ja:'鳥',   kana:'とり',   romaji:'tori' }, { ja:'波',   kana:'なみ',   romaji:'nami' },
+  { ja:'石',   kana:'いし',   romaji:'ishi' }, { ja:'川',   kana:'かわ',   romaji:'kawa' },
+  { ja:'山',   kana:'やま',   romaji:'yama' }, { ja:'猫',   kana:'ねこ',   romaji:'neko' },
+  { ja:'熊',   kana:'くま',   romaji:'kuma' }, { ja:'玉',   kana:'たま',   romaji:'tama' },
+  { ja:'夢',   kana:'ゆめ',   romaji:'yume' }, { ja:'水',   kana:'みず',   romaji:'mizu' },
+  { ja:'雲',   kana:'くも',   romaji:'kumo' }, { ja:'富士', kana:'ふじ',   romaji:'fuji' },
+  { ja:'竹',   kana:'たけ',   romaji:'take' }, { ja:'亀',   kana:'かめ',   romaji:'kame' },
+  { ja:'蟹',   kana:'かに',   romaji:'kani' }, { ja:'草',   kana:'くさ',   romaji:'kusa' },
+  { ja:'牙',   kana:'きば',   romaji:'kiba' }, { ja:'霧',   kana:'きり',   romaji:'kiri' },
+  { ja:'弓',   kana:'ゆみ',   romaji:'yumi' }, { ja:'薔薇', kana:'ばら',   romaji:'bara' },
+  { ja:'蛇',   kana:'へび',   romaji:'hebi' }, { ja:'肉',   kana:'にく',   romaji:'niku' },
+  { ja:'籠',   kana:'かご',   romaji:'kago' }, { ja:'鍋',   kana:'なべ',   romaji:'nabe' },
+  { ja:'酒',   kana:'さけ',   romaji:'sake' }, { ja:'豆',   kana:'まめ',   romaji:'mame' },
+  { ja:'桃',   kana:'もも',   romaji:'momo' }, { ja:'砂',   kana:'すな',   romaji:'suna' },
+  { ja:'姫',   kana:'ひめ',   romaji:'hime' }, { ja:'牛', kana:'うし', romaji:'ushi' },
+  { ja:'柿', kana:'かき', romaji:'kaki' },
+  { ja:'鍵', kana:'かぎ', romaji:'kagi' },
+  { ja:'傘', kana:'かさ', romaji:'kasa' },
+  { ja:'肩', kana:'かた', romaji:'kata' },
+  { ja:'角', kana:'かど', romaji:'kado' },
+  { ja:'傷', kana:'きず', romaji:'kizu' },
+  { ja:'絹', kana:'きぬ', romaji:'kinu' },
+  { ja:'国', kana:'くに', romaji:'kuni' },
+  { ja:'栗', kana:'くり', romaji:'kuri' },
+  { ja:'黒', kana:'くろ', romaji:'kuro' },
+  { ja:'桁', kana:'けた', romaji:'keta' },
+  { ja:'粉', kana:'こな', romaji:'kona' },
+  { ja:'皿', kana:'さら', romaji:'sara' },
+  { ja:'塩', kana:'しお', romaji:'shio' },
+  { ja:'筋', kana:'すじ', romaji:'suji' },
+  { ja:'砂利', kana:'じゃり', romaji:'jari' },
+  { ja:'鈴', kana:'すず', romaji:'suzu' },
+  { ja:'席', kana:'せき', romaji:'seki' },
+  { ja:'底', kana:'そこ', romaji:'soko' },
+  { ja:'袖', kana:'そで', romaji:'sode' },
+  { ja:'滝', kana:'たき', romaji:'taki' },
+  { ja:'谷', kana:'たに', romaji:'tani' },
+  { ja:'寺', kana:'てら', romaji:'tera' },
+  { ja:'殿', kana:'との', romaji:'tono' },
+  { ja:'虎', kana:'とら', romaji:'tora' },
+  { ja:'謎', kana:'なぞ', romaji:'nazo' },
+  { ja:'布', kana:'ぬの', romaji:'nuno' },
+  { ja:'軒', kana:'のき', romaji:'noki' },
+  { ja:'海苔', kana:'のり', romaji:'nori' },
+  { ja:'箱', kana:'はこ', romaji:'hako' },
+  { ja:'旗', kana:'はた', romaji:'hata' },
+  { ja:'鳩', kana:'はと', romaji:'hato' },
+  { ja:'火事', kana:'かじ', romaji:'kaji' },
+  { ja:'肘', kana:'ひじ', romaji:'hiji' },
+  { ja:'船', kana:'ふね', romaji:'fune' },
+  { ja:'部屋', kana:'へや', romaji:'heya' },
+  { ja:'骨', kana:'ほね', romaji:'hone' },
+  { ja:'的', kana:'まと', romaji:'mato' },
+  { ja:'窓', kana:'まど', romaji:'mado' },
+  { ja:'店', kana:'みせ', romaji:'mise' },
+  { ja:'溝', kana:'みぞ', romaji:'mizo' },
+  { ja:'麦', kana:'むぎ', romaji:'mugi' },
+  { ja:'村', kana:'むら', romaji:'mura' },
+  { ja:'闇', kana:'やみ', romaji:'yami' },
+  { ja:'床', kana:'ゆか', romaji:'yuka' },
+  { ja:'楽', kana:'らく', romaji:'raku' },
+  { ja:'陸', kana:'りく', romaji:'riku' },
+  { ja:'留守', kana:'るす', romaji:'rusu' },
+
+  // 5文字ローマ字 (105語)
+  { ja:'月',     kana:'つき',     romaji:'tsuki' }, { ja:'星',     kana:'ほし',     romaji:'hoshi' },
+  { ja:'城',     kana:'しろ',     romaji:'shiro' }, { ja:'夏',     kana:'なつ',     romaji:'natsu' },
+  { ja:'キリン', kana:'きりん',   romaji:'kirin' }, { ja:'カエル', kana:'かえる',   romaji:'kaeru' },
+  { ja:'太鼓',   kana:'たいこ',   romaji:'taiko' }, { ja:'忍者',   kana:'にんじゃ', romaji:'ninja' },
+  { ja:'アニメ', kana:'あにめ',   romaji:'anime' }, { ja:'橋',     kana:'はし',     romaji:'hashi' },
+  { ja:'道',     kana:'みち',     romaji:'michi' }, { ja:'神社',   kana:'じんじゃ', romaji:'jinja' },
+  { ja:'魔法',   kana:'まほう',   romaji:'mahou' }, { ja:'武士',   kana:'ぶし',     romaji:'bushi' },
+  { ja:'天気',   kana:'てんき',   romaji:'tenki' }, { ja:'地図',   kana:'ちず',     romaji:'chizu' },
+  { ja:'鶴',     kana:'つる',     romaji:'tsuru' }, { ja:'夜明け', kana:'よあけ',   romaji:'yoake' },
+  { ja:'令和',   kana:'れいわ',   romaji:'reiwa' },
+  { ja:'寿司',   kana:'すし',     romaji:'sushi' }, { ja:'鳥居',   kana:'とりい',   romaji:'torii' },
+  { ja:'俳句',   kana:'はいく',   romaji:'haiku' }, { ja:'餅',     kana:'もち',     romaji:'mochi' },
+  { ja:'布団',   kana:'ふとん',   romaji:'futon' }, { ja:'漢字',   kana:'かんじ',   romaji:'kanji' },
+  { ja:'オタク', kana:'おたく',   romaji:'otaku' }, { ja:'温泉',   kana:'おんせん', romaji:'onsen' },
+  { ja:'団子',   kana:'だんご',   romaji:'dango' }, { ja:'西瓜',   kana:'すいか',   romaji:'suika' },
+  { ja:'勝',     kana:'かつ',     romaji:'katsu' }, { ja:'勇気',   kana:'ゆうき',   romaji:'yuuki' },
+  { ja:'小判',   kana:'こばん',   romaji:'koban' }, { ja:'朝日',   kana:'あさひ',   romaji:'asahi' },
+  { ja:'小川',   kana:'おがわ',   romaji:'ogawa' }, { ja:'未来',   kana:'みらい',   romaji:'mirai' },
+  { ja:'変化',   kana:'へんか',   romaji:'henka' }, { ja:'泉',     kana:'いずみ',   romaji:'izumi' },
+  { ja:'受け身', kana:'うけみ',   romaji:'ukemi' },
+  { ja:'岸', kana:'きし', romaji:'kishi' },
+  { ja:'菓子', kana:'かし', romaji:'kashi' },
+  { ja:'越し', kana:'こし', romaji:'koshi' },
+  { ja:'西', kana:'にし', romaji:'nishi' },
+  { ja:'主', kana:'ぬし', romaji:'nushi' },
+  { ja:'虫', kana:'むし', romaji:'mushi' },
+  { ja:'星座', kana:'せいざ', romaji:'seiza' },
+  { ja:'機械', kana:'きかい', romaji:'kikai' },
+  { ja:'期待', kana:'きたい', romaji:'kitai' },
+  { ja:'記者', kana:'きしゃ', romaji:'kisha' },
+  { ja:'飛行', kana:'ひこう', romaji:'hikou' },
+  { ja:'加工', kana:'かこう', romaji:'kakou' },
+  { ja:'再度', kana:'さいど', romaji:'saido' },
+  { ja:'制度', kana:'せいど', romaji:'seido' },
+  { ja:'程度', kana:'ていど', romaji:'teido' },
+  { ja:'態度', kana:'たいど', romaji:'taido' },
+  { ja:'街路', kana:'がいろ', romaji:'gairo' },
+  { ja:'海図', kana:'かいず', romaji:'kaizu' },  
+  { ja:'会話', kana:'かいわ', romaji:'kaiwa' },  
+  { ja:'得意', kana:'とくい', romaji:'tokui' }, 
+  { ja:'時計', kana:'とけい', romaji:'tokei' }, 
+  { ja:'都市', kana:'とし', romaji:'toshi' },  
+  { ja:'燃費', kana:'ねんぴ', romaji:'nenpi' }, 
+  { ja:'農家', kana:'のうか', romaji:'nouka' },  
+  { ja:'日記', kana:'にっき', romaji:'nikki' }, 
+  { ja:'人気', kana:'にんき', romaji:'ninki' }, 
+  { ja:'認可', kana:'にんか', romaji:'ninka' }, 
+  { ja:'文化', kana:'ぶんか', romaji:'bunka' }, 
+  { ja:'文句', kana:'もんく', romaji:'monku' }, 
+  { ja:'漫画', kana:'まんが', romaji:'manga' }, 
+  { ja:'民家', kana:'みんか', romaji:'minka' }, 
+  { ja:'明記', kana:'めいき', romaji:'meiki' }, 
+  { ja:'迷子', kana:'まいご', romaji:'maigo' }, 
+  { ja:'模型', kana:'もけい', romaji:'mokei' }, 
+  { ja:'野菜', kana:'やさい', romaji:'yasai' }, 
+  { ja:'理由', kana:'りゆう', romaji:'riyuu' }, 
+  { ja:'冷気', kana:'れいき', romaji:'reiki' }, 
+  { ja:'恋愛', kana:'れんあい', romaji:'renai' }, 
+  { ja:'連打', kana:'れんだ', romaji:'renda' },
+  { ja:'荒野',     kana:'こうや',   romaji:'kouya' },
+  { ja:'在庫',     kana:'ざいこ',   romaji:'zaiko' },
+  { ja:'平和', kana:'へいわ', romaji:'heiwa' }, 
+  { ja:'名誉', kana:'めいよ', romaji:'meiyo' },
+  { ja:'栄養', kana:'えいよう', romaji:'eiyou' },
+  { ja:'費用', kana:'ひよう', romaji:'hiyou' }, 
+  { ja:'利用', kana:'りよう', romaji:'riyou' }, 
+  { ja:'器用', kana:'きよう', romaji:'kiyou' }, 
+  { ja:'需要', kana:'じゅよう', romaji:'juyou' }, 
+  { ja:'不要', kana:'ふよう', romaji:'fuyou' }, 
+  { ja:'息吹',   kana:'いぶき', romaji:'ibuki' },
+  { ja:'宴',     kana:'うたげ', romaji:'utage' },
+  { ja:'噂',     kana:'うわさ', romaji:'uwasa' },
+  { ja:'未定', kana:'みてい', romaji:'mitei' },
+  { ja:'無限', kana:'むげん', romaji:'mugen' },
+  { ja:'様子', kana:'ようす', romaji:'yousu' },
+  { ja:'要素', kana:'ようそ', romaji:'youso' },
+  { ja:'祈り', kana:'いのり', romaji:'inori' },
+  { ja:'動き', kana:'うごき', romaji:'ugoki' },
+  { ja:'選ぶ', kana:'えらぶ', romaji:'erabu' },
+  { ja:'重み', kana:'おもみ', romaji:'omomi' },
+  { ja:'親子', kana:'おやこ', romaji:'oyako' },
+  { ja:'帰り', kana:'かえり', romaji:'kaeri' },
+  { ja:'課題', kana:'かだい', romaji:'kadai' },
+  { ja:'機能', kana:'きのう', romaji:'kinou' },
+  { ja:'希望', kana:'きぼう', romaji:'kibou' },
+  { ja:'区間', kana:'くかん', romaji:'kukan' },
+  { ja:'結果', kana:'けっか', romaji:'kekka' },
+  { ja:'効果', kana:'こうか', romaji:'kouka' },
+  { ja:'構図', kana:'こうず', romaji:'kouzu' },
+  { ja:'対応', kana:'たいおう', romaji:'taiou' },
+  { ja:'保存', kana:'ほぞん', romaji:'hozon' },
+  { ja:'未満', kana:'みまん', romaji:'miman' },
+  { ja:'無線', kana:'むせん', romaji:'musen' },
+  { ja:'理解', kana:'りかい', romaji:'rikai' },
+
+ // 6文字ローマ字 (121語)
+  { ja:'桜',    kana:'さくら',   romaji:'sakura' }, { ja:'緑',    kana:'みどり',   romaji:'midori' },
+  { ja:'自然',  kana:'しぜん',   romaji:'shizen' }, { ja:'刀',    kana:'かたな',   romaji:'katana' },
+  { ja:'先生',  kana:'せんせい', romaji:'sensei' }, { ja:'光',    kana:'ひかり',   romaji:'hikari' },
+  { ja:'仲間',  kana:'なかま',   romaji:'nakama' }, { ja:'剣士',  kana:'けんし',   romaji:'kenshi' },
+  { ja:'戦士',  kana:'せんし',   romaji:'senshi' }, { ja:'勝利',  kana:'しょうり', romaji:'shouri' },
+  { ja:'言葉',  kana:'ことば',   romaji:'kotoba' }, { ja:'着物',  kana:'きもの',   romaji:'kimono' },
+  { ja:'先輩',  kana:'せんぱい', romaji:'senpai' }, { ja:'娘',    kana:'むすめ',   romaji:'musume' },
+  { ja:'子供',  kana:'こども',   romaji:'kodomo' }, { ja:'タヌキ',kana:'たぬき',   romaji:'tanuki' },
+  { ja:'抹茶',  kana:'まっちゃ', romaji:'matcha' }, { ja:'わさび',kana:'わさび',   romaji:'wasabi' },
+  { ja:'国語',  kana:'こくご',   romaji:'kokugo' }, { ja:'電車',  kana:'でんしゃ', romaji:'densha' },
+  { ja:'勇者',  kana:'ゆうしゃ', romaji:'yuusha' }, { ja:'野原',  kana:'のはら',   romaji:'nohara' },
+  { ja:'歌舞伎',kana:'かぶき',   romaji:'kabuki' }, { ja:'蛍',    kana:'ほたる',   romaji:'hotaru' },
+  { ja:'広場',  kana:'ひろば',   romaji:'hiroba' }, { ja:'車',    kana:'くるま',   romaji:'kuruma' },
+  { ja:'旅館',  kana:'りょかん', romaji:'ryokan' }, { ja:'烏',    kana:'からす',   romaji:'karasu' },
+  { ja:'魚',    kana:'さかな',   romaji:'sakana' }, { ja:'畳',    kana:'たたみ',   romaji:'tatami' },
+  { ja:'袋',    kana:'ふくろ',   romaji:'fukuro' }, { ja:'鴎',    kana:'かもめ',   romaji:'kamome' },
+  { ja:'流れ',  kana:'ながれ',   romaji:'nagare' }, { ja:'遥か',  kana:'はるか',   romaji:'haruka' },
+  { ja:'大和',  kana:'やまと',   romaji:'yamato' }, { ja:'蝙蝠',  kana:'こうもり', romaji:'komori' },
+  { ja:'命',     kana:'いのち', romaji:'inochi' },
+  { ja:'家族',   kana:'かぞく', romaji:'kazoku' },
+  { ja:'草木',   kana:'くさき', romaji:'kusaki' },
+  { ja:'薬',     kana:'くすり', romaji:'kusuri' },
+  { ja:'心',     kana:'こころ', romaji:'kokoro' },
+  { ja:'育て',   kana:'そだて', romaji:'sodate' },
+  { ja:'宝',     kana:'たから', romaji:'takara' },
+  { ja:'助け',   kana:'たすけ', romaji:'tasuke' },
+  { ja:'食べる', kana:'たべる', romaji:'taberu' },
+  { ja:'手紙',   kana:'てがみ', romaji:'tegami' },
+  { ja:'中身',   kana:'なかみ', romaji:'nakami' },
+  { ja:'和み',   kana:'なごみ', romaji:'nagomi' },
+  { ja:'涙',     kana:'なみだ', romaji:'namida' },
+  { ja:'望み',   kana:'のぞみ', romaji:'nozomi' },
+  { ja:'響き',   kana:'ひびき', romaji:'hibiki' },
+  { ja:'誇り',   kana:'ほこり', romaji:'hokori' },
+  { ja:'学ぶ',   kana:'まなぶ', romaji:'manabu' },
+  { ja:'味方',   kana:'みかた', romaji:'mikata' },
+  { ja:'港',     kana:'みなと', romaji:'minato' },
+  { ja:'結ぶ',   kana:'むすぶ', romaji:'musubu' },
+  { ja:'目覚め', kana:'めざめ', romaji:'mezame' },
+  { ja:'戻る',   kana:'もどる', romaji:'modoru' },
+  { ja:'休み',   kana:'やすみ', romaji:'yasumi' },
+  { ja:'縁',     kana:'ゆかり', romaji:'yukari' },
+  { ja:'夢見',   kana:'ゆめみ', romaji:'yumemi' },
+  { ja:'落語',   kana:'らくご', romaji:'rakugo' },
+  { ja:'嵐',     kana:'あらし', romaji:'arashi' },
+  { ja:'鏡',     kana:'かがみ', romaji:'kagami' },
+  { ja:'欠片',   kana:'かけら', romaji:'kakera' },
+  { ja:'飾り',   kana:'かざり', romaji:'kazari' },
+  { ja:'絆',     kana:'きずな', romaji:'kizuna' },
+  { ja:'決まり', kana:'きまり', romaji:'kimari' },
+  { ja:'曇り',   kana:'くもり', romaji:'kumori' },
+  { ja:'胡桃',   kana:'くるみ', romaji:'kurumi' },
+  { ja:'煙',     kana:'けむり', romaji:'kemuri' },
+  { ja:'小鳥',   kana:'ことり', romaji:'kotori' },
+  { ja:'零れ',   kana:'こぼれ', romaji:'kobore' },
+  { ja:'悟り',   kana:'さとり', romaji:'satori' },
+  { ja:'砂漠',   kana:'さばく', romaji:'sabaku' },
+  { ja:'姿',     kana:'すがた', romaji:'sugata' },
+  { ja:'雀',     kana:'すずめ', romaji:'suzume' },
+  { ja:'滑り',   kana:'すべり', romaji:'suberi' },
+  { ja:'便り',   kana:'たより', romaji:'tayori' },
+  { ja:'俵',     kana:'たわら', romaji:'tawara' },
+  { ja:'誓い',   kana:'ちかい', romaji:'chikai' },
+  { ja:'手先',   kana:'てさき', romaji:'tesaki' },
+  { ja:'手乗り', kana:'てのり', romaji:'tenori' },
+  { ja:'届け',   kana:'とどけ', romaji:'todoke' },
+  { ja:'泊まり', kana:'とまり', romaji:'tomari' },
+  { ja:'名残',   kana:'なごり', romaji:'nagori' },
+  { ja:'握り',   kana:'にぎり', romaji:'nigiri' },
+  { ja:'温み',   kana:'ぬくみ', romaji:'nukumi' },
+  { ja:'眠り',   kana:'ねむり', romaji:'nemuri' },
+  { ja:'上り',   kana:'のぼり', romaji:'nobori' },
+  { ja:'量り',   kana:'はかり', romaji:'hakari' },
+  { ja:'花火',   kana:'はなび', romaji:'hanabi' },
+  { ja:'日陰',   kana:'ひかげ', romaji:'hikage' },
+  { ja:'瞳',     kana:'ひとみ', romaji:'hitomi' },
+  { ja:'開き',   kana:'ひらき', romaji:'hiraki' },
+  { ja:'麓',     kana:'ふもと', romaji:'fumoto' },
+  { ja:'隔て',   kana:'へだて', romaji:'hedate' },
+  { ja:'細み',   kana:'ほそみ', romaji:'hosomi' },
+  { ja:'任せ',   kana:'まかせ', romaji:'makase' },
+  { ja:'枕',     kana:'まくら', romaji:'makura' },
+  { ja:'窓辺',   kana:'まどべ', romaji:'madobe' },
+  { ja:'磨き',   kana:'みがき', romaji:'migaki' },
+  { ja:'岬',     kana:'みさき', romaji:'misaki' },
+  { ja:'恵み',   kana:'めぐみ', romaji:'megumi' },
+  { ja:'宿り',   kana:'やどり', romaji:'yadori' },
+  { ja:'ゆとり', kana:'ゆとり', romaji:'yutori' },
+  { ja:'居場所', kana:'いばしょ', romaji:'ibasho' },
+  { ja:'違い', kana:'ちがい', romaji:'chigai' },
+  { ja:'形見', kana:'かたみ', romaji:'katami' },
+  { ja:'片手', kana:'かたて', romaji:'katate' },
+  { ja:'速度', kana:'そくど', romaji:'sokudo' },
+  { ja:'地点', kana:'ちてん', romaji:'chiten' },
+  { ja:'態勢', kana:'たいせい', romaji:'taisei' },
+  { ja:'都合', kana:'つごう', romaji:'tsugou' },
+  { ja:'適度', kana:'てきど', romaji:'tekido' },
+  { ja:'統合', kana:'とうごう', romaji:'tougou' },
+  { ja:'熱意', kana:'ねつい', romaji:'netsui' },
+  { ja:'判断', kana:'はんだん', romaji:'handan' },
+  { ja:'不足', kana:'ふそく', romaji:'fusoku' },
+  { ja:'平均', kana:'へいきん', romaji:'heikin' },
+  { ja:'方向', kana:'ほうこう', romaji:'houkou' },
+  { ja:'見事', kana:'みごと', romaji:'migoto' },
+  { ja:'明日', kana:'あした', romaji:'ashita' },
+  { ja:'問題', kana:'もんだい', romaji:'mondai' },
+  { ja:'役目', kana:'やくめ', romaji:'yakume' },
+  { ja:'冷静', kana:'れいせい', romaji:'reisei' },
+];
+// ローマ字→日本語 / ローマ字→かな の逆引きマップ
+const WORD_BANK_JA_MAP = {};
+const ROMAJI_TO_KANA = {};
+WORD_BANK_JA.forEach(({ja, kana, romaji}) => {
+  WORD_BANK_JA_MAP[romaji] = ja;
+  ROMAJI_TO_KANA[romaji] = kana;
+});
+
+// ===== ROMAJI ENGINE =====
+// ひらがな → 有効なローマ字パターン
+const KANA_ROMAJI_MAP = {
+  'あ':['a'],  'い':['i'],  'う':['u'],  'え':['e'],  'お':['o'],
+  'か':['ka','ca'], 'き':['ki'], 'く':['ku','cu'], 'け':['ke'], 'こ':['ko','co'],
+  'が':['ga'], 'ぎ':['gi'], 'ぐ':['gu'], 'げ':['ge'], 'ご':['go'],
+  'さ':['sa'], 'し':['si','shi','ci'], 'す':['su'], 'せ':['se','ce'], 'そ':['so'],
+  'ざ':['za'], 'じ':['zi','ji'], 'ず':['zu'], 'ぜ':['ze'], 'ぞ':['zo'],
+  'た':['ta'], 'ち':['ti','chi'], 'つ':['tu','tsu'], 'て':['te'], 'と':['to'],
+  'だ':['da'], 'ぢ':['di'], 'づ':['du','dzu'], 'で':['de'], 'ど':['do'],
+  'な':['na'], 'に':['ni'], 'ぬ':['nu'], 'ね':['ne'], 'の':['no'],
+  'は':['ha'], 'ひ':['hi'], 'ふ':['fu','hu'], 'へ':['he'], 'ほ':['ho'],
+  'ば':['ba'], 'び':['bi'], 'ぶ':['bu'], 'べ':['be'], 'ぼ':['bo'],
+  'ぱ':['pa'], 'ぴ':['pi'], 'ぷ':['pu'], 'ぺ':['pe'], 'ぽ':['po'],
+  'ま':['ma'], 'み':['mi'], 'む':['mu'], 'め':['me'], 'も':['mo'],
+  'や':['ya'], 'ゆ':['yu'], 'よ':['yo'],
+  'ら':['ra'], 'り':['ri'], 'る':['ru'], 'れ':['re'], 'ろ':['ro'],
+  'わ':['wa'], 'を':['wo'],
+  // 拗音
+  'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
+  'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
+  'しゃ':['sya','sha'],'しゅ':['syu','shu'],'しょ':['syo','sho'],
+  'じゃ':['zya','jya','ja'],'じゅ':['zyu','jyu','ju'],'じょ':['zyo','jyo','jo'],
+  'ちゃ':['tya','cha'],'ちゅ':['tyu','chu'],'ちょ':['tyo','cho'],
+  'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
+  'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
+  'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
+  'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
+  'みゃ':['mya'],'みゅ':['myu'],'みょ':['myo'],
+  'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
+};
+const SMALL_KANA = new Set(['ぁ','ぃ','ぅ','ぇ','ぉ','ゃ','ゅ','ょ']);
+
+// かな列の pos 以降の最初のセグメントごとにコールバック: callback(romaji, nextPos)
+function forEachSegAt(kana, pos, callback) {
+  if (pos >= kana.length) return;
+  const ch = kana[pos];
+  // 2文字拗音
+  if (pos + 1 < kana.length && SMALL_KANA.has(kana[pos + 1])) {
+    const bi = ch + kana[pos + 1];
+    if (KANA_ROMAJI_MAP[bi]) { KANA_ROMAJI_MAP[bi].forEach(r => callback(r, pos + 2)); return; }
+  }
+  // 1文字
+  if (KANA_ROMAJI_MAP[ch]) { KANA_ROMAJI_MAP[ch].forEach(r => callback(r, pos + 1)); }
+}
+
+// かなからすべての有効ローマ字列を生成（キャッシュ付き）
+const _romajiCache = {};
+function getAllRomaji(kana) {
+  if (_romajiCache[kana]) return _romajiCache[kana];
+  const results = new Set();
+
+  function go(pos, acc) {
+    if (pos >= kana.length) { results.add(acc); return; }
+    const ch = kana[pos];
+
+    // っ: 次のセグメントの子音を重ねる
+    if (ch === 'っ') {
+      forEachSegAt(kana, pos + 1, (rom, nextEnd) => {
+        const c = rom[0];
+        if (c && !/[aeiou]/.test(c)) {
+          // doubled consonant → that romaji is forced for the next segment
+          go(nextEnd, acc + c + rom);
+        }
+      });
+      // xtu / ltu として単独で入力する方法
+      go(pos + 1, acc + 'xtu');
+      go(pos + 1, acc + 'ltu');
+      return;
+    }
+
+    // ん: 文脈によって n or nn
+    if (ch === 'ん') {
+      go(pos + 1, acc + 'nn'); // 常に有効
+      // 末尾 or 次が母音/n/y 以外の子音 なら n 単体も有効
+      let nOk = (pos + 1 >= kana.length);
+      if (!nOk) {
+        forEachSegAt(kana, pos + 1, (rom) => {
+          if (!nOk && !/^[aeiouy]/.test(rom) && rom[0] !== 'n') nOk = true;
+        });
+      }
+      if (nOk) go(pos + 1, acc + 'n');
+      return;
+    }
+
+    forEachSegAt(kana, pos, (rom, nextPos) => go(nextPos, acc + rom));
+  }
+
+  go(0, '');
+  _romajiCache[kana] = [...results];
+  return _romajiCache[kana];
+}
+
+// input がかなの有効なローマ字の前方一致か
+function isJaPrefix(kana, input) {
+  return getAllRomaji(kana).some(r => r.startsWith(input));
+}
+// input がかなの完全一致か
+function isJaComplete(kana, input) {
+  return getAllRomaji(kana).includes(input);
+}
+// 表示用: input に前方一致する最短ローマ字（なければ先頭要素）
+function getDisplayRomaji(kana, input) {
+  const all = getAllRomaji(kana);
+  const cands = input ? all.filter(r => r.startsWith(input)) : all;
+  const pool = cands.length ? cands : all;
+  return pool.reduce((a, b) => a.length <= b.length ? a : b);
+}
+
+// ===== CHARACTERS =====
+const CHARACTERS = [
+  { id: 'azure',    name: 'AZURE',
+    c1:'#4a9fff', c2:'#5588cc', c3:'#2244aa',
+    c4:'#3355cc', c5:'#4466dd', c6:'#3399ff', c7:'#88ccff', c8:'#aaddff' },
+  { id: 'jade',     name: 'JADE',
+    c1:'#44bb66', c2:'#338855', c3:'#1a5533',
+    c4:'#226633', c5:'#33aa55', c6:'#22ee88', c7:'#88ffcc', c8:'#aaffdd' },
+  { id: 'amethyst', name: 'AMETHYST',
+    c1:'#aa55ff', c2:'#8833cc', c3:'#551199',
+    c4:'#5522aa', c5:'#7733cc', c6:'#cc77ff', c7:'#ddaaff', c8:'#eeccff' },
+  { id: 'ember',    name: 'EMBER',
+    c1:'#ff7733', c2:'#cc4411', c3:'#881100',
+    c4:'#aa2200', c5:'#cc3311', c6:'#ffaa33', c7:'#ffcc88', c8:'#ffddaa' },
+  { id: 'frost',    name: 'FROST',
+    c1:'#66ddff', c2:'#44aacc', c3:'#226688',
+    c4:'#2255aa', c5:'#3366bb', c6:'#88eeff', c7:'#bbf0ff', c8:'#ddf8ff' },
+];
+
 // ===== CONSTANTS =====
 const ITEM_TYPES = ['speed','freeze','bomb','meteor','banish','beam','missile'];
 const ITEM_ICONS = { speed:'⚡', freeze:'❄️', bomb:'💣', meteor:'☄️', banish:'🌀', beam:'〰️', missile:'🚀' };
@@ -1075,9 +1916,14 @@ function playItem() { playTone(1000, 'triangle', 0.2, 0.35); }
 function playExplosion() { playTone(80, 'sawtooth', 0.4, 0.4); }
 function playFreeze() { playTone(500, 'triangle', 0.3, 0.5); }
 function playMeteor() { playTone(200,'sawtooth',0.1); setTimeout(()=>playTone(300,'sawtooth',0.1),100); setTimeout(()=>playTone(150,'sawtooth',0.2),200); }
+function playWarp() {
+  playTone(1800, 'sine', 0.08, 0.35);
+  playTone(2400, 'sine', 0.06, 0.25);
+  setTimeout(() => playTone(1200, 'triangle', 0.1, 0.2), 60);
+}
 
 // ===== SETTINGS =====
-let settings = { n: 6, time: 30, wordLen: 4, kpm: 200, itemInterval: 5, wordFontSize: 18, wordFont: "'Roboto Mono',monospace", theme: 'default' };
+let settings = { n: 6, time: 30, wordLen: 4, kpm: 200, itemInterval: 5, initItems: 2, wordFontSize: 18, wordFont: "'Roboto Mono',monospace", theme: 'default', character: 'azure', language: 'en' };
 
 // ===== THEME SELECTION =====
 function applyTheme(theme) {
@@ -1150,26 +1996,62 @@ function applyTheme(theme) {
   Object.entries(t).forEach(([k, v]) => {
     document.documentElement.style.setProperty(k, v);
   });
+  // 明るいテーマはスキャンラインを薄くする
   const lightThemes = ['konoha'];
   const scanOpacity = lightThemes.includes(theme) ? '0.03' : '0.08';
   document.documentElement.style.setProperty('--scanline-opacity', scanOpacity);
 }
 
+// ===== CHAR SELECT SCREEN =====
+function showCharSelect() {
+  showScreen('char-select-screen');
+  const grid = document.getElementById('char-grid');
+  grid.innerHTML = '';
+  CHARACTERS.forEach(char => {
+    const card = document.createElement('div');
+    card.className = 'char-card' + (char.id === settings.character ? ' selected' : '');
+    card.dataset.id = char.id;
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '94 126 152 160');
+    svg.innerHTML = buildCharSVGInner(char);
+
+    const label = document.createElement('div');
+    label.className = 'char-card-name';
+    label.textContent = char.name;
+
+    card.appendChild(svg);
+    card.appendChild(label);
+    card.addEventListener('click', () => {
+      grid.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      settings.character = char.id;
+    });
+    grid.appendChild(card);
+  });
+
+  document.getElementById('char-confirm-btn').onclick = () => startGame();
+  document.getElementById('char-back-btn').onclick = () => showScreen('start-screen');
+}
+
 // ===== START SCREEN =====
 function initStartScreen() {
   // Option buttons
-  ['size-opts','time-opts','wordlen-opts','item-opts','uisize-opts','theme-opts'].forEach(id => {
+  ['lang-opts','size-opts','time-opts','wordlen-opts','item-opts','init-items-opts','uisize-opts','theme-opts'].forEach(id => {
     document.getElementById(id).querySelectorAll('.opt-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.parentElement.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-          const key = id === 'size-opts'    ? 'n'
-                           : id === 'time-opts'    ? 'time'
-                           : id === 'wordlen-opts' ? 'wordLen'
-                           : id === 'item-opts'    ? 'itemInterval'
-                           : id === 'uisize-opts'  ? 'wordFontSize'
+          const key = id === 'lang-opts'        ? 'language'
+                           : id === 'size-opts'       ? 'n'
+                           : id === 'time-opts'       ? 'time'
+                           : id === 'wordlen-opts'    ? 'wordLen'
+                           : id === 'item-opts'       ? 'itemInterval'
+                           : id === 'init-items-opts' ? 'initItems'
+                           : id === 'uisize-opts'     ? 'wordFontSize'
                            : 'theme';
-          settings[key] = id === 'uisize-opts' ? parseInt(btn.dataset.val) : btn.dataset.val;
+          const intKeys = ['uisize-opts', 'init-items-opts'];
+          settings[key] = intKeys.includes(id) ? parseInt(btn.dataset.val) : btn.dataset.val;
       });
     });
   });
@@ -1187,8 +2069,10 @@ function initStartScreen() {
     });
   }
 
-  document.getElementById('start-btn').addEventListener('click', startGame);
+  document.getElementById('start-btn').addEventListener('click', showCharSelect);
+  document.getElementById('online-btn').addEventListener('click', startOnlineGame);
   document.getElementById('retry-btn').addEventListener('click', () => {
+    if (G.endScreenTimer) { clearTimeout(G.endScreenTimer); G.endScreenTimer = null; }
     showScreen('start-screen');
   });
 
@@ -1217,30 +2101,37 @@ function showScreen(id) {
 
 // ===== WORD SELECTION =====
 function selectWords(n, wordLen) {
-  // Filter words of specified length
-  let pool = WORD_BANK.filter(w => w.length === wordLen);
-  // fallback: nearby lengths
-  if (pool.length < n*n + 20) {
-    const extra = WORD_BANK.filter(w => Math.abs(w.length - wordLen) <= 1);
-    pool = [...new Set([...pool, ...extra])];
+  wordLen = parseInt(wordLen);
+  const bank = settings.language === 'ja'
+    ? WORD_BANK_JA.map(w => w.romaji)
+    : WORD_BANK;
+  // Filter words of exactly the specified length
+  let pool = bank.filter(w => w.length === wordLen);
+  // Fallback: only if no words at all for this length
+  if (pool.length === 0) {
+    pool = bank.filter(w => Math.abs(w.length - wordLen) <= 1);
+    if (pool.length === 0) pool = [...bank];
   }
   // shuffle
   for (let i = pool.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
-  return pool.slice(0, n * n);
+  // Repeat pool to fill grid if not enough unique words
+  const needed = n * n;
+  while (pool.length < needed) pool = [...pool, ...pool];
+  return pool.slice(0, needed);
 }
 
 // ===== GAME INIT =====
-function startGame() {
+function startGame(wordsOverride = null) {
   document.documentElement.style.setProperty('--word-font-size', settings.wordFontSize + 'px');
   document.documentElement.style.setProperty('--word-font', settings.wordFont);
   applyTheme(settings.theme);
   document.addEventListener('keydown', handleKeydown);
 
   const n = settings.n;
-  const words = selectWords(n, settings.wordLen);
+  const words = wordsOverride || selectWords(n, settings.wordLen);
 
   G = {
     n,
@@ -1282,6 +2173,7 @@ function startGame() {
       G.cells.push({
         r, c,
         word: words[idx],
+        kana: settings.language === 'ja' ? (ROMAJI_TO_KANA[words[idx]] || null) : null,
         owner: 0, // 0=neutral, 1=player, 2=cpu
       });
     }
@@ -1290,11 +2182,72 @@ function startGame() {
   getCell(0, 0).owner = 1;
   getCell(n-1, n-1).owner = 2;
 
+  // 初期アイテム配置（オフライン or player1のみ生成）
+  if (!isOnline || myRole === 'player1') {
+    const forbidden = new Set(['0,0', `${n-1},${n-1}`]);
+    const allCells = [];
+    for (let r = 0; r < n; r++)
+      for (let c = 0; c < n; c++)
+        if (!forbidden.has(`${r},${c}`)) allCells.push(`${r},${c}`);
+    for (let i = allCells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allCells[i], allCells[j]] = [allCells[j], allCells[i]];
+    }
+    const count = Math.min(settings.initItems, allCells.length);
+    for (let i = 0; i < count; i++) {
+      G.mapItems[allCells[i]] = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+    }
+    if (isOnline && roomId) {
+      db.ref(`rooms/${roomId}/items`).set(G.mapItems);
+    }
+  }
+
   showScreen('game-screen');
   buildGrid();
   renderAll();
-  startTimers();
-  cpuLoop();
+  startCountdown(() => {
+    startTimers();
+    if (!isOnline) cpuLoop();
+  });
+}
+
+// ===== COUNTDOWN =====
+function startCountdown(onComplete) {
+  const steps = [
+    { text: '3', cls: '' },
+    { text: '2', cls: '' },
+    { text: '1', cls: '' },
+    { text: 'GO!', cls: 'go' },
+  ];
+  let i = 0;
+
+  function showStep() {
+    // 前のオーバーレイを消す
+    const prev = document.querySelector('.countdown-overlay');
+    if (prev) prev.remove();
+
+    if (i >= steps.length) {
+      onComplete();
+      return;
+    }
+
+    const { text, cls } = steps[i++];
+    const overlay = document.createElement('div');
+    overlay.className = 'countdown-overlay';
+    const num = document.createElement('div');
+    num.className = 'countdown-number' + (cls ? ' ' + cls : '');
+    num.textContent = text;
+    overlay.appendChild(num);
+    document.body.appendChild(overlay);
+
+    // アニメーション（0.9s）が終わったら次へ
+    setTimeout(() => {
+      overlay.remove();
+      showStep();
+    }, 900);
+  }
+
+  showStep();
 }
 
 function getCell(r, c) {
@@ -1394,20 +2347,41 @@ function renderAll() {
       if (wordEl) {
         const w = cell.word;
         const typed = G.input;
-        let html = '';
+        const inRange = pRange.has(`${r},${c}`);
+        let romajiHtml = '';
 
-        const isComplete = typed === w; // 単語が完成していてスペース待ちの状態
-        if (typed && w.startsWith(typed)) {
-          if (isComplete) {
-            // 単語完成→スペース待ち表示
-            html = `<span class="typed">${typed}</span><span class="remaining space-prompt">_</span>`;
+        if (cell.kana) {
+          // Japanese mode: use multi-spelling aware display
+          const isComplete = isJaComplete(cell.kana, typed);
+          const display = getDisplayRomaji(cell.kana, typed);
+          if (typed && inRange && isJaPrefix(cell.kana, typed)) {
+            if (isComplete) {
+              romajiHtml = `<span class="typed">${display}</span><span class="remaining space-prompt">_</span>`;
+            } else {
+              romajiHtml = `<span class="typed">${typed}</span><span class="remaining">${display.slice(typed.length)}_</span>`;
+            }
           } else {
-            html = `<span class="typed">${typed}</span><span class="remaining">${w.slice(typed.length)}_</span>`;
+            romajiHtml = `<span class="remaining">${display}_</span>`;
           }
         } else {
-          html = `<span class="remaining">${w}_</span>`;
+          const isComplete = typed === w;
+          if (typed && inRange && w.startsWith(typed)) {
+            if (isComplete) {
+              romajiHtml = `<span class="typed">${typed}</span><span class="remaining space-prompt">_</span>`;
+            } else {
+              romajiHtml = `<span class="typed">${typed}</span><span class="remaining">${w.slice(typed.length)}_</span>`;
+            }
+          } else {
+            romajiHtml = `<span class="remaining">${w}_</span>`;
+          }
         }
-        wordEl.innerHTML = html;
+
+        if (settings.language === 'ja') {
+          const jaText = WORD_BANK_JA_MAP[w] || w;
+          wordEl.innerHTML = `<div class="cell-ja">${jaText}</div><div class="cell-word-romaji">${romajiHtml}</div>`;
+        } else {
+          wordEl.innerHTML = romajiHtml;
+        }
       }
     }
   }
@@ -1416,36 +2390,33 @@ function renderAll() {
   renderStatus();
 }
 
-function createPlayerSVG() {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', '44 126 252 160');
-  svg.setAttribute('class', 'char-svg player-char');
-  svg.innerHTML = `
+function buildCharSVGInner({c1,c2,c3,c4,c5,c6,c7,c8}) {
+  return `
     <ellipse cx="170" cy="265" rx="38" ry="8" fill="rgba(0,0,0,0.12)"/>
-    <rect x="148" y="210" width="44" height="48" rx="12" fill="#4a9fff"/>
+    <rect x="148" y="210" width="44" height="48" rx="12" fill="${c1}"/>
     <path d="M160 210 L170 222 L180 210" fill="#fff" opacity="0.5"/>
-    <rect x="130" y="214" width="18" height="10" rx="5" fill="#4a9fff"/>
-    <rect x="192" y="214" width="18" height="10" rx="5" fill="#4a9fff"/>
+    <rect x="130" y="214" width="18" height="10" rx="5" fill="${c1}"/>
+    <rect x="192" y="214" width="18" height="10" rx="5" fill="${c1}"/>
     <circle cx="127" cy="219" r="7" fill="#ffd0b0"/>
     <circle cx="213" cy="219" r="7" fill="#ffd0b0"/>
-    <rect x="152" y="252" width="14" height="22" rx="6" fill="#5588cc"/>
-    <rect x="174" y="252" width="14" height="22" rx="6" fill="#5588cc"/>
-    <rect x="149" y="268" width="18" height="10" rx="5" fill="#2244aa"/>
-    <rect x="172" y="268" width="18" height="10" rx="5" fill="#2244aa"/>
+    <rect x="152" y="252" width="14" height="22" rx="6" fill="${c2}"/>
+    <rect x="174" y="252" width="14" height="22" rx="6" fill="${c2}"/>
+    <rect x="149" y="268" width="18" height="10" rx="5" fill="${c3}"/>
+    <rect x="172" y="268" width="18" height="10" rx="5" fill="${c3}"/>
     <rect x="163" y="195" width="14" height="18" rx="6" fill="#ffd0b0"/>
     <ellipse cx="170" cy="170" rx="36" ry="34" fill="#ffd0b0"/>
-    <ellipse cx="137" cy="162" rx="10" ry="14" fill="#3355cc" transform="rotate(-15,137,162)"/>
-    <ellipse cx="203" cy="162" rx="10" ry="14" fill="#3355cc" transform="rotate(15,203,162)"/>
-    <path d="M134 158 Q136 130 170 126 Q204 130 206 158" fill="#3355cc"/>
-    <path d="M134 158 Q128 150 130 168" fill="#3355cc"/>
-    <path d="M206 158 Q212 150 210 168" fill="#3355cc"/>
-    <path d="M140 155 Q148 140 170 138 Q192 140 200 155" fill="#4466dd"/>
-    <path d="M133 162 Q110 180 108 210 Q115 195 128 185 Q132 170 137 162" fill="#3355cc"/>
-    <path d="M207 162 Q230 180 232 210 Q225 195 212 185 Q208 170 203 162" fill="#3355cc"/>
+    <ellipse cx="137" cy="162" rx="10" ry="14" fill="${c4}" transform="rotate(-15,137,162)"/>
+    <ellipse cx="203" cy="162" rx="10" ry="14" fill="${c4}" transform="rotate(15,203,162)"/>
+    <path d="M134 158 Q136 130 170 126 Q204 130 206 158" fill="${c4}"/>
+    <path d="M134 158 Q128 150 130 168" fill="${c4}"/>
+    <path d="M206 158 Q212 150 210 168" fill="${c4}"/>
+    <path d="M140 155 Q148 140 170 138 Q192 140 200 155" fill="${c5}"/>
+    <path d="M133 162 Q110 180 108 210 Q115 195 128 185 Q132 170 137 162" fill="${c4}"/>
+    <path d="M207 162 Q230 180 232 210 Q225 195 212 185 Q208 170 203 162" fill="${c4}"/>
     <ellipse cx="158" cy="172" rx="10" ry="11" fill="#fff"/>
     <ellipse cx="182" cy="172" rx="10" ry="11" fill="#fff"/>
-    <ellipse cx="159" cy="174" rx="7" ry="8" fill="#3399ff"/>
-    <ellipse cx="183" cy="174" rx="7" ry="8" fill="#3399ff"/>
+    <ellipse cx="159" cy="174" rx="7" ry="8" fill="${c6}"/>
+    <ellipse cx="183" cy="174" rx="7" ry="8" fill="${c6}"/>
     <ellipse cx="160" cy="175" rx="4" ry="5" fill="#113"/>
     <ellipse cx="184" cy="175" rx="4" ry="5" fill="#113"/>
     <circle cx="157" cy="171" r="2.5" fill="#fff"/>
@@ -1459,13 +2430,21 @@ function createPlayerSVG() {
     <path d="M163 186 Q170 192 177 186" stroke="#e88" stroke-width="1.8" fill="none" stroke-linecap="round"/>
     <ellipse cx="147" cy="182" rx="8" ry="5" fill="#ffaaaa" opacity="0.45"/>
     <ellipse cx="193" cy="182" rx="8" ry="5" fill="#ffaaaa" opacity="0.45"/>
-    <path d="M126 168 Q134 158 138 165 Q134 172 126 168Z" fill="#88ccff"/>
-    <path d="M150 168 Q142 158 138 165 Q142 172 150 168Z" fill="#88ccff"/>
-    <circle cx="138" cy="165" r="4" fill="#aaddff"/>
-    <path d="M208 168 Q216 158 220 165 Q216 172 208 168Z" fill="#88ccff"/>
-    <path d="M196 168 Q204 158 208 165 Q204 172 196 168Z" fill="#88ccff"/>
-    <circle cx="208" cy="165" r="4" fill="#aaddff"/>
+    <path d="M126 168 Q134 158 138 165 Q134 172 126 168Z" fill="${c7}"/>
+    <path d="M150 168 Q142 158 138 165 Q142 172 150 168Z" fill="${c7}"/>
+    <circle cx="138" cy="165" r="4" fill="${c8}"/>
+    <path d="M208 168 Q216 158 220 165 Q216 172 208 168Z" fill="${c7}"/>
+    <path d="M196 168 Q204 158 208 165 Q204 172 196 168Z" fill="${c7}"/>
+    <circle cx="208" cy="165" r="4" fill="${c8}"/>
   `;
+}
+
+function createPlayerSVG() {
+  const char = CHARACTERS.find(c => c.id === settings.character) || CHARACTERS[0];
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '44 126 252 160');
+  svg.setAttribute('class', 'char-svg player-char');
+  svg.innerHTML = buildCharSVGInner(char);
   return svg;
 }
 
@@ -1631,7 +2610,7 @@ function getCandidateCells() {
   reachable.forEach(key => {
     const [r,c] = key.split(',').map(Number);
     const cell = getCell(r,c);
-    if (cell && cell.word.startsWith(G.input)) set.add(key);
+    if (cell && (cell.kana ? isJaPrefix(cell.kana, G.input) : cell.word.startsWith(G.input))) set.add(key);
   });
   return set;
 }
@@ -1671,7 +2650,7 @@ function playerMoveTo(r, c) {
   if (r === G.cpu.r && c === G.cpu.c) {
     G.cpu.r = G.n - 1;
     G.cpu.c = G.n - 1;
-    // No paint for warp
+    playWarp();
   }
 
   // アイテム入手（着地時に即使用）
@@ -1679,6 +2658,16 @@ function playerMoveTo(r, c) {
 
   playCapture();
   G.input = '';
+
+  if (isOnline && roomId) {
+    db.ref(`rooms/${roomId}/${myRole}`).set({
+      r, c,
+      fromR, fromC,
+      cells: G.cells.map(cell => cell.owner), // 陣地情報も送る
+      ts: Date.now(),
+    });
+  }
+
   renderAll();
 }
 
@@ -1732,6 +2721,30 @@ function applyItem(type, who, itemR, itemC) {
       triggerMissile(who, itemR, itemC);
       break;
   }
+
+  if (isOnline && roomId && who === 1) {
+    db.ref(`rooms/${roomId}/event`).set({
+      type: 'item',
+      itemType: type,
+      who: myRole,
+      itemR: itemR ?? null,
+      itemC: itemC ?? null,
+      ts: Date.now(),
+    });
+  }
+}
+
+// 塗り替えたマスのリストに敵がいれば初期位置へワープ（メテオ・ミサイル・ビーム共通）
+function warpIfHit(who, cells) {
+  const enemyPos  = who === 1 ? G.cpu    : G.player;
+  const enemyHome = who === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
+  if (cells.some(({r,c}) => r === enemyPos.r && c === enemyPos.c)) {
+    enemyPos.r = enemyHome.r;
+    enemyPos.c = enemyHome.c;
+    if (who === 2) G.input = '';
+    return true;
+  }
+  return false;
 }
 
 function triggerBomb(owner) {
@@ -1779,78 +2792,189 @@ function triggerMeteor(who) {
     const j = Math.floor(Math.random()*(i+1));
     [enemyCells[i],enemyCells[j]] = [enemyCells[j],enemyCells[i]];
   }
-  enemyCells.slice(0, 9).forEach(({r,c}) => { getCell(r,c).owner = who; });
+  const hit = enemyCells.slice(0, 9);
+
+  const enemyHit = hit.some(({r,c}) => r === (who===1?G.cpu:G.player).r && c === (who===1?G.cpu:G.player).c);
 
   playMeteor();
   const overlay = document.createElement('div');
   overlay.className = 'meteor-overlay';
   document.body.appendChild(overlay);
   setTimeout(() => overlay.remove(), 800);
+
+  // 各マスに時間差で着弾演出 → 塗り替え
+  hit.forEach(({r, c}, i) => {
+    const delay = i * 80;
+    setTimeout(() => {
+      getCell(r, c).owner = who;
+      const el = document.getElementById(`cell-${r}-${c}`);
+      if (el) {
+        const fx = document.createElement('div');
+        fx.className = 'meteor-hit';
+        fx.textContent = '☄️';
+        el.appendChild(fx);
+        setTimeout(() => fx.remove(), 650);
+      }
+      renderAll();
+    }, delay);
+  });
+
+  if (enemyHit) {
+    setTimeout(() => { warpIfHit(who, hit); renderAll(); }, hit.length * 80);
+  }
 }
 
 // BANISH：敵をランダムなマスへ強制転移
 function triggerBanish(who) {
   const n = G.n;
   const enemyPos = who === 1 ? G.cpu : G.player;
+  const fromR = enemyPos.r, fromC = enemyPos.c;
   const all = [];
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
-      if (r !== enemyPos.r || c !== enemyPos.c) all.push({r,c});
+      if (r !== fromR || c !== fromC) all.push({r,c});
   const dest = all[Math.floor(Math.random() * all.length)];
-  enemyPos.r = dest.r;
-  enemyPos.c = dest.c;
-  if (who === 2) G.input = ''; // プレイヤーが転移させられた場合
+
+  // 転移元：消えるエフェクト
+  const fromEl = document.getElementById(`cell-${fromR}-${fromC}`);
+  if (fromEl) {
+    const fx = document.createElement('div');
+    fx.className = 'banish-out';
+    fx.textContent = '🌀';
+    fromEl.appendChild(fx);
+    setTimeout(() => fx.remove(), 500);
+  }
+
   playTone(800, 'sine', 0.3, 0.4);
+
+  // 少し遅らせて転移先に出現
+  setTimeout(() => {
+    enemyPos.r = dest.r;
+    enemyPos.c = dest.c;
+    if (who === 2) G.input = '';
+
+    const toEl = document.getElementById(`cell-${dest.r}-${dest.c}`);
+    if (toEl) {
+      const fx = document.createElement('div');
+      fx.className = 'banish-in';
+      fx.textContent = '🌀';
+      toEl.appendChild(fx);
+      setTimeout(() => fx.remove(), 500);
+    }
+    playTone(400, 'sine', 0.2, 0.3);
+    renderAll();
+  }, 300);
 }
 
-// MISSILE：斜め方向の全マスを塗り替え・敵がいたらワープ
+// MISSILE：斜め方向のマスを1マスずつ順に塗り替え（演出付き）
 function triggerMissile(who, itemR, itemC) {
   const n = G.n;
-  const enemyPos  = who === 1 ? G.cpu    : G.player;
-  const enemyHome = who === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
-  let hitEnemy = false;
 
-  // 4つの斜め方向それぞれ端まで
+  // 斜め4方向の角度（🚀はデフォルト上向き、各方向に45度反時計回り調整済み）
+  const dirAngles = {
+    '-1,-1': '270deg', // NW
+    '-1,1':    '0deg', // NE
+    '1,-1':  '180deg', // SW
+    '1,1':    '90deg', // SE
+  };
+
+  // 各方向のマスリストを収集
+  const sequences = [];
   [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
+    const seq = [];
     let r = itemR + dr, c = itemC + dc;
     while (r >= 0 && r < n && c >= 0 && c < n) {
-      getCell(r, c).owner = who;
-      if (r === enemyPos.r && c === enemyPos.c) hitEnemy = true;
-      r += dr;
-      c += dc;
+      seq.push({r, c});
+      r += dr; c += dc;
     }
+    if (seq.length) sequences.push({ seq, angle: dirAngles[`${dr},${dc}`] });
   });
 
-  if (hitEnemy) { enemyPos.r = enemyHome.r; enemyPos.c = enemyHome.c; }
-  playTone(400,'sawtooth',0.1);
-  setTimeout(() => playTone(800,'sine',0.15), 150);
-  setTimeout(() => playTone(1200,'sine',0.1), 300);
+  // 最長アームのステップ数
+  const maxSteps = Math.max(...sequences.map(s => s.seq.length));
+  const msPerStep = 80;
+  const paintedCells = [];
+
+  for (let step = 0; step < maxSteps; step++) {
+    setTimeout(() => {
+      sequences.forEach(({ seq, angle }) => {
+        if (step >= seq.length) return;
+        const { r, c } = seq[step];
+        getCell(r, c).owner = who;
+        paintedCells.push({r, c});
+
+        // ミサイルアイコン演出
+        const el = document.getElementById(`cell-${r}-${c}`);
+        if (el) {
+          const icon = document.createElement('div');
+          icon.className = 'missile-icon';
+          icon.style.setProperty('--missile-rot', angle);
+          icon.textContent = '🚀';
+          el.appendChild(icon);
+          setTimeout(() => icon.remove(), 300);
+        }
+        playTone(400 + step * 80, 'sawtooth', 0.06, 0.15);
+      });
+
+      renderAll();
+
+      // 最終ステップで敵ワープ判定
+      if (step === maxSteps - 1) {
+        warpIfHit(who, paintedCells);
+        renderAll();
+      }
+    }, step * msPerStep);
+  }
 }
 
-// ION CANNON：アイテムマスの上下左右を強制塗り替え・敵がいたらワープ
+// BEAM：アイテムマスの上下左右を中心から外へ順に塗り替え（演出付き）
 function triggerBeam(who, itemR, itemC) {
   const n = G.n;
-  const enemyPos  = who === 1 ? G.cpu    : G.player;
-  const enemyHome = who === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
-  let hitEnemy = false;
+  const msPerStep = 55;
+  const paintedCells = [];
 
-  // 同じ行（横ライン）全マス
-  for (let c = 0; c < n; c++) {
-    if (c === itemC) continue; // アイテムマス自体はスキップ
-    getCell(itemR, c).owner = who;
-    if (itemR === enemyPos.r && c === enemyPos.c) hitEnemy = true;
-  }
-  // 同じ列（縦ライン）全マス
-  for (let r = 0; r < n; r++) {
-    if (r === itemR) continue; // 横ラインと重複するのでスキップ
-    getCell(r, itemC).owner = who;
-    if (r === enemyPos.r && itemC === enemyPos.c) hitEnemy = true;
+  // 横方向（左右）・縦方向（上下）を中心から外向きに列挙
+  const maxDist = n - 1;
+  const steps = [];
+  for (let d = 1; d <= maxDist; d++) {
+    const batch = [];
+    // 左
+    if (itemC - d >= 0) batch.push({ r: itemR, c: itemC - d, dir: 'h' });
+    // 右
+    if (itemC + d < n)  batch.push({ r: itemR, c: itemC + d, dir: 'h' });
+    // 上
+    if (itemR - d >= 0) batch.push({ r: itemR - d, c: itemC, dir: 'v' });
+    // 下
+    if (itemR + d < n)  batch.push({ r: itemR + d, c: itemC, dir: 'v' });
+    if (batch.length) steps.push(batch);
   }
 
-  if (hitEnemy) { enemyPos.r = enemyHome.r; enemyPos.c = enemyHome.c; }
-  playTone(300,'sawtooth',0.2);
-  setTimeout(() => playTone(600,'sine',0.15), 100);
-  setTimeout(() => playTone(1200,'sine',0.1), 200);
+  playTone(300, 'sawtooth', 0.2);
+  setTimeout(() => playTone(600,  'sine', 0.15), 100);
+  setTimeout(() => playTone(1200, 'sine', 0.1),  200);
+
+  steps.forEach((batch, i) => {
+    setTimeout(() => {
+      batch.forEach(({ r, c, dir }) => {
+        getCell(r, c).owner = who;
+        paintedCells.push({r, c});
+
+        const el = document.getElementById(`cell-${r}-${c}`);
+        if (el) {
+          const fx = document.createElement('div');
+          fx.className = `beam-hit beam-${dir}`;
+          el.appendChild(fx);
+          setTimeout(() => fx.remove(), 400);
+        }
+      });
+      renderAll();
+
+      if (i === steps.length - 1) {
+        warpIfHit(who, paintedCells);
+        renderAll();
+      }
+    }, i * msPerStep);
+  });
 }
 
 function pickupItem(r, c, who) {
@@ -1879,6 +3003,10 @@ function spawnItem() {
   const key = all[Math.floor(Math.random()*all.length)];
   const type = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
   G.mapItems[key] = type;
+
+  if (isOnline && roomId && myRole === 'player1') {
+    db.ref(`rooms/${roomId}/items`).set(G.mapItems);
+  }
 }
 
 // ===== INPUT HANDLING =====
@@ -1918,7 +3046,7 @@ function handleKeydown(e) {
     reachable.forEach(key => {
       const [r,c] = key.split(',').map(Number);
       const cell = getCell(r,c);
-      if (cell && cell.word === G.input) matched = {r,c};
+      if (cell && (cell.kana ? isJaComplete(cell.kana, G.input) : cell.word === G.input)) matched = {r,c};
     });
     if (matched) {
       G.combo++;
@@ -1946,7 +3074,7 @@ function handleKeydown(e) {
     reachable.forEach(key => {
       const [r,c] = key.split(',').map(Number);
       const cell = getCell(r,c);
-      if (cell && cell.word.startsWith(newInput)) hasCandidate = true;
+      if (cell && (cell.kana ? isJaPrefix(cell.kana, newInput) : cell.word.startsWith(newInput))) hasCandidate = true;
     });
 
     if (!hasCandidate) {
@@ -1993,10 +3121,10 @@ function startTimers() {
     renderAll();
   }, 1000);
 
-  if (settings.itemInterval > 0) {
-   G.itemTimer = setInterval(() => {
+  if (settings.itemInterval > 0 && (!isOnline || myRole === 'player1')) {
+    G.itemTimer = setInterval(() => {
       if (G.running) { spawnItem(); renderAll(); }
-   }, settings.itemInterval * 1000);
+    }, settings.itemInterval * 1000);
   }
 
   // Continuous effects update via rAF
@@ -2034,7 +3162,7 @@ function gameLoop(now) {
     normalRange.forEach(key => {
       const [nr,nc] = key.split(',').map(Number);
       const cell = getCell(nr,nc);
-      if (cell && cell.word.startsWith(G.input)) stillValid = true;
+      if (cell && (cell.kana ? isJaPrefix(cell.kana, G.input) : cell.word.startsWith(G.input))) stillValid = true;
     });
     if (!stillValid) G.input = '';
   }
@@ -2208,6 +3336,7 @@ function cpuMoveTo(r, c) {
     G.player.r = 0;
     G.player.c = 0;
     G.input = '';
+    playWarp();
   }
 
   // Pick up item
@@ -2219,6 +3348,7 @@ function cpuMoveTo(r, c) {
 
 // ===== END GAME =====
 function endGame() {
+  isOnline = false;
   G.running = false;
   clearInterval(G.timerInterval);
   clearInterval(G.itemTimer);
@@ -2241,11 +3371,166 @@ function endGame() {
   document.getElementById('result-miss').textContent     = G.missCount;
   document.getElementById('result-maxcombo').textContent = G.maxCombo;
 
-  setTimeout(() => showScreen('end-screen'), 800);
+  // オンライン対戦の場合はルームを削除
+  if (roomId) {
+    db.ref(`rooms/${roomId}`).remove();
+    roomId = null;
+  }
+
+  G.endScreenTimer = setTimeout(() => showScreen('end-screen'), 800);
 }
 
 // ===== UTILITY =====
 function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
+
+// ===== オンライン対戦 =====
+function startOnlineGame() {
+  const input = prompt('ルームIDを入力（作成・参加どちらも同じIDを使います）');
+  if (!input) return;
+  roomId = input.toUpperCase().trim();
+
+  db.ref(`rooms/${roomId}`).once('value', snap => {
+    if (snap.val()) {
+      // すでに存在 → 参加
+      myRole = 'player2';
+      joinRoom(roomId);
+    } else {
+      // 存在しない → 作成
+      myRole = 'player1';
+      createRoom(roomId);
+      alert(`ルームID「${roomId}」を作成しました。相手に伝えてください。`);
+    }
+  });
+}
+
+function createRoom(roomId) {
+  // ホスト側で単語を生成してFirebaseに保存
+  const words = selectWords(settings.n, settings.wordLen);
+
+  db.ref(`rooms/${roomId}`).set({
+    status: 'waiting',
+    settings: {
+      n: settings.n,
+      time: settings.time,
+      wordLen: settings.wordLen,
+      itemInterval: settings.itemInterval,
+    },
+    words: words, // ← 単語リストを保存
+    player1: { r: 0, c: 0 },
+    player2: { r: settings.n-1, c: settings.n-1 },
+  });
+
+  db.ref(`rooms/${roomId}/status`).on('value', snap => {
+    if (snap.val() === 'playing') {
+      startOnlineMatch(words); // ← wordsを渡す
+    }
+  });
+}
+
+function joinRoom(roomId) {
+  db.ref(`rooms/${roomId}`).once('value', snap => {
+    const room = snap.val();
+    if (!room) { alert('ルームが見つかりません。'); return; }
+
+    const s = room.settings;
+    if (s) {
+      settings.n            = Number(s.n);
+      settings.time         = Number(s.time);
+      settings.wordLen      = Number(s.wordLen);
+      settings.itemInterval = Number(s.itemInterval);
+    }
+
+    // ホストが保存した単語リストを使う
+    const words = room.words;
+
+    db.ref(`rooms/${roomId}/status`).set('playing').then(() => {
+      startOnlineMatch(words); // ← wordsを渡す
+    });
+  });
+}
+
+function startOnlineMatch(words) {
+  // 通常のstartGame()を呼んでCPUループだけ止める
+  isOnline = true;
+  startGame(words); // ← wordsを渡す
+  // CPU処理は不要なので上書きで停止（cpuLoopはG.runningで自然に終わる）
+
+  // player2は自分と相手の位置・陣地を入れ替える
+  if (myRole === 'player2') {
+    const n = G.n;
+    // 自分の位置を右下に
+    G.player.r = n - 1;
+    G.player.c = n - 1;
+    // 相手の位置を左上に
+    G.cpu.r = 0;
+    G.cpu.c = 0;
+    // 陣地の初期オーナーも入れ替え
+    getCell(0, 0).owner = 2;        // 相手(player1)の陣地
+    getCell(n-1, n-1).owner = 1;    // 自分(player2)の陣地
+    renderAll();
+  }
+
+  // 自分の動きをFirebaseに送信
+  watchMyMovement();
+  // 相手の動きを受信
+  watchOpponentMovement();
+}
+
+// 自分の位置変化をFirebaseに送信
+function watchMyMovement() {
+  // playerMoveTo をフック（送信処理を追記）
+  const origMove = playerMoveTo;
+  window._onlinePlayerMove = (r, c) => {
+    db.ref(`rooms/${roomId}/${myRole}`).set({ r, c, ts: Date.now() });
+  };
+}
+
+// 相手の動きを受信してグリッドに反映
+function watchOpponentMovement() {
+  const opponentRole = myRole === 'player1' ? 'player2' : 'player1';
+
+  db.ref(`rooms/${roomId}/${opponentRole}`).on('value', snap => {
+    const data = snap.val();
+    if (!data || !G.running) return;
+
+    // 陣地情報を同期（自分の陣地は上書きしない）
+    if (data.cells) {
+      data.cells.forEach((owner, idx) => {
+        // ↓ 送信者視点の1と2を受信者視点に反転して適用
+        if (owner === 1) G.cells[idx].owner = 2; // 相手の陣地
+        if (owner === 2) G.cells[idx].owner = 1; // 自分の陣地
+        if (owner === 0) G.cells[idx].owner = 0; // 中立
+      });
+    }
+
+    // 相手キャラの位置を更新
+    G.cpu.r = data.r;
+    G.cpu.c = data.c;
+
+    renderAll();
+  });
+
+  // ↓ 追加：アイテムイベントの受信
+  db.ref(`rooms/${roomId}/event`).on('value', snap => {
+    const ev = snap.val();
+    if (!ev || !G.running) return;
+    // 自分が送ったイベントは無視
+    if (ev.who === myRole) return;
+
+    // 相手が使ったアイテムを自分の画面に適用
+    // whoを反転して適用（相手が使った = こちらから見て2が使った）
+    applyItem(ev.itemType, 2, ev.itemR, ev.itemC);
+    renderAll();
+  });
+
+  // アイテム出現の受信（両者がFirebaseを正として同期）
+  db.ref(`rooms/${roomId}/items`).on('value', snap => {
+    const items = snap.val();
+    if (!G.running) return;
+    G.mapItems = items || {};
+    renderAll();
+  });
+}
 
 // ===== BOOT =====
 initStartScreen();
