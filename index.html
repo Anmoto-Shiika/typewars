@@ -935,12 +935,21 @@ body::before {
     </div>
   </div>
 
-  <div style="display:flex; gap:12px; margin-top:8px;">
+  <div style="display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; align-items:center;">
     <button class="start-btn" id="start-btn">VS CPU</button>
-    <button class="start-btn" id="online-btn" 
+    <button class="start-btn" id="online-btn"
       style="background:linear-gradient(135deg,#a0ff80,#40cc40); color:#000;">
       VS PLAYER
     </button>
+    <!-- [追加] ロビー待機中のUI。enterLobby()中のみ表示 -->
+    <button class="start-btn" id="lobby-cancel-btn"
+      style="display:none; background:linear-gradient(135deg,#ff8080,#cc4040); color:#fff;">
+      CANCEL
+    </button>
+  </div>
+  <!-- [追加] マッチング待機ステータス表示 -->
+  <div id="lobby-status" style="display:none; margin-top:8px; font-size:13px; color:var(--accent); letter-spacing:1px;">
+    ⏳ Searching for opponent...
   </div>
 
   <div class="legend">
@@ -1079,8 +1088,10 @@ const auth = firebase.auth();
 // 匿名認証（ユーザーに見えない・操作不要）
 auth.signInAnonymously().catch(() => {});
 
-// VS PLAYER ボタンは認証完了まで無効化
+// [変更] UIDを取得しつつVS PLAYERボタンを認証完了まで無効化
+let myUserId = null;
 auth.onAuthStateChanged(user => {
+  myUserId = user ? user.uid : null;
   const btn = document.getElementById('online-btn');
   if (btn) {
     btn.disabled = !user;
@@ -1088,9 +1099,10 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-// ブラウザを閉じたときにルームを削除
+// ブラウザを閉じたときのクリーンアップ（onDisconnectのバックアップ）
 window.addEventListener('beforeunload', () => {
-  if (roomId) db.ref(`rooms/${roomId}`).remove();
+  if (myUserId) db.ref(`lobby/waiting/${myUserId}`).remove();
+  if (roomId)   db.ref(`rooms/${roomId}`).remove();
 });
 
 let myRole = null;   // 'player1' or 'player2'
@@ -1749,9 +1761,9 @@ const KANA_ROMAJI_MAP = {
   'あ':['a'],  'い':['i'],  'う':['u'],  'え':['e'],  'お':['o'],
   'か':['ka','ca'], 'き':['ki'], 'く':['ku','cu'], 'け':['ke'], 'こ':['ko','co'],
   'が':['ga'], 'ぎ':['gi'], 'ぐ':['gu'], 'げ':['ge'], 'ご':['go'],
-  'さ':['sa'], 'し':['si','shi','ci'], 'す':['su'], 'せ':['se','ce'], 'そ':['so'],
-  'ざ':['za'], 'じ':['zi','ji'], 'ず':['zu'], 'ぜ':['ze'], 'ぞ':['zo'],
-  'た':['ta'], 'ち':['ti','chi'], 'つ':['tu','tsu'], 'て':['te'], 'と':['to'],
+  'さ':['sa'], 'し':['shi','si','ci'], 'す':['su'], 'せ':['se','ce'], 'そ':['so'],
+  'ざ':['za'], 'じ':['ji','zi'], 'ず':['zu'], 'ぜ':['ze'], 'ぞ':['zo'],
+  'た':['ta'], 'ち':['chi','ti'], 'つ':['tsu','tu'], 'て':['te'], 'と':['to'],
   'だ':['da'], 'ぢ':['di'], 'づ':['du','dzu'], 'で':['de'], 'ど':['do'],
   'な':['na'], 'に':['ni'], 'ぬ':['nu'], 'ね':['ne'], 'の':['no'],
   'は':['ha'], 'ひ':['hi'], 'ふ':['fu','hu'], 'へ':['he'], 'ほ':['ho'],
@@ -1764,9 +1776,9 @@ const KANA_ROMAJI_MAP = {
   // 拗音
   'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
   'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
-  'しゃ':['sya','sha'],'しゅ':['syu','shu'],'しょ':['syo','sho'],
-  'じゃ':['zya','jya','ja'],'じゅ':['zyu','jyu','ju'],'じょ':['zyo','jyo','jo'],
-  'ちゃ':['tya','cha'],'ちゅ':['tyu','chu'],'ちょ':['tyo','cho'],
+  'しゃ':['sha','sya'],'しゅ':['shu','syu'],'しょ':['sho','syo'],
+  'じゃ':['ja','jya','zya'],'じゅ':['ju','jyu','zyu'],'じょ':['jo','jyo','zyo'],
+  'ちゃ':['cha','tya'],'ちゅ':['chu','tyu'],'ちょ':['cho','tyo'],
   'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
   'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
   'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
@@ -1844,12 +1856,12 @@ function isJaPrefix(kana, input) {
 function isJaComplete(kana, input) {
   return getAllRomaji(kana).includes(input);
 }
-// 表示用: input に前方一致する最短ローマ字（なければ先頭要素）
+// 表示用: ヘボン式優先（配列先頭）。input があれば前方一致するものの中でヘボン式優先
 function getDisplayRomaji(kana, input) {
-  const all = getAllRomaji(kana);
-  const cands = input ? all.filter(r => r.startsWith(input)) : all;
-  const pool = cands.length ? cands : all;
-  return pool.reduce((a, b) => a.length <= b.length ? a : b);
+  const all = getAllRomaji(kana); // 配列先頭がヘボン式
+  if (!input) return all[0];
+  const matching = all.filter(r => r.startsWith(input));
+  return matching.length ? matching[0] : all[0];
 }
 
 // ===== CHARACTERS =====
@@ -2070,7 +2082,8 @@ function initStartScreen() {
   }
 
   document.getElementById('start-btn').addEventListener('click', showCharSelect);
-  document.getElementById('online-btn').addEventListener('click', startOnlineGame);
+  document.getElementById('online-btn').addEventListener('click', enterLobby);
+  document.getElementById('lobby-cancel-btn').addEventListener('click', leaveLobby);
   document.getElementById('retry-btn').addEventListener('click', () => {
     if (G.endScreenTimer) { clearTimeout(G.endScreenTimer); G.endScreenTimer = null; }
     showScreen('start-screen');
@@ -2155,7 +2168,9 @@ function startGame(wordsOverride = null) {
     cpuTypedCount: 0,
     cpuTypingTimer: null,
     // items on map
-    mapItems: {}, // key = "r,c" => type
+    mapItems: {},    // key = "r,c" => type (ローカル参照用)
+    itemFbKeys: {},  // key = "r,c" => Firebase push key (online削除用)
+    itemSpawner: 'player1', // items生成責任者。切断時にplayer2に切り替わる
     itemTimer: null,
     running: false,
     kpm: settings.kpm,
@@ -2182,8 +2197,10 @@ function startGame(wordsOverride = null) {
   getCell(0, 0).owner = 1;
   getCell(n-1, n-1).owner = 2;
 
-  // 初期アイテム配置（オフライン or player1のみ生成）
-  if (!isOnline || myRole === 'player1') {
+  // 初期アイテム配置
+  // オンライン時: _createMatchRoom()でroom作成時に書き込み済み → child_addedで受信
+  // オフライン時: ここでローカルに直接配置
+  if (!isOnline) {
     const forbidden = new Set(['0,0', `${n-1},${n-1}`]);
     const allCells = [];
     for (let r = 0; r < n; r++)
@@ -2195,10 +2212,8 @@ function startGame(wordsOverride = null) {
     }
     const count = Math.min(settings.initItems, allCells.length);
     for (let i = 0; i < count; i++) {
-      G.mapItems[allCells[i]] = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
-    }
-    if (isOnline && roomId) {
-      db.ref(`rooms/${roomId}/items`).set(G.mapItems);
+      const key = allCells[i];
+      G.mapItems[key] = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
     }
   }
 
@@ -2630,6 +2645,8 @@ function paintPath(fromR, fromC, toR, toC, owner) {
   path.forEach(({r,c}) => {
     getCell(r,c).owner = owner;
   });
+  // [変更] 塗ったセルを返すことでonline同期側が差分だけ送れるようにする
+  return path;
 }
 
 // ===== PLAYER MOVE (via typing) =====
@@ -2637,10 +2654,13 @@ function playerMoveTo(r, c) {
   const fromR = G.player.r, fromC = G.player.c;
 
   // Paint path 現在地への移動の場合も必ず自マスを塗る
+  // [変更] paintPathの戻り値で塗ったセルを収集し、差分のみ送信する
+  let paintedCells;
   if (fromR === r && fromC === c) {
     getCell(r, c).owner = 1;
+    paintedCells = [{r, c}];
   } else {
-    paintPath(fromR, fromC, r, c, 1);
+    paintedCells = paintPath(fromR, fromC, r, c, 1);
   }
 
   G.player.r = r;
@@ -2660,11 +2680,14 @@ function playerMoveTo(r, c) {
   G.input = '';
 
   if (isOnline && roomId) {
-    db.ref(`rooms/${roomId}/${myRole}`).set({
-      r, c,
-      fromR, fromC,
-      cells: G.cells.map(cell => cell.owner), // 陣地情報も送る
-      ts: Date.now(),
+    // [変更] Date.now()禁止 → ServerValue.TIMESTAMPを使用
+    db.ref(`rooms/${roomId}/players/${myRole}`).set({
+      r, c, ts: firebase.database.ServerValue.TIMESTAMP
+    });
+    db.ref(`rooms/${roomId}/captures`).push({
+      player: myRole,
+      cells: paintedCells,
+      ts: firebase.database.ServerValue.TIMESTAMP,
     });
   }
 
@@ -2681,6 +2704,12 @@ function playerArrowMove(dr, dc) {
   G.player.r = r;
   G.player.c = c;
   pickupItem(r, c, 1); // 自陣でもアイテム拾える
+  // [変更] 矢印移動も位置を送信（タイプ移動と統一）。ServerValue.TIMESTAMP使用
+  if (isOnline && roomId) {
+    db.ref(`rooms/${roomId}/players/${myRole}`).set({
+      r, c, ts: firebase.database.ServerValue.TIMESTAMP
+    });
+  }
   renderAll();
 }
 
@@ -2690,6 +2719,8 @@ function usePlayerItem(slotIdx) {
   if (!item) return;
   G.player.items[slotIdx] = null;
   applyItem(item, 1);
+  // [変更] アイテム使用を送信（手動使用。itemR/Cはnull=スロット起動）
+  sendItemEvent(item, null, null);
   renderAll();
 }
 
@@ -2722,16 +2753,22 @@ function applyItem(type, who, itemR, itemC) {
       break;
   }
 
-  if (isOnline && roomId && who === 1) {
-    db.ref(`rooms/${roomId}/event`).set({
-      type: 'item',
-      itemType: type,
-      who: myRole,
-      itemR: itemR ?? null,
-      itemC: itemC ?? null,
-      ts: Date.now(),
-    });
-  }
+  // [変更] Firebase送信をapplyItemから分離。送信は呼び出し元(usePlayerItem/pickupItem)が行う
+}
+
+// [追加] アイテム使用イベントをFirebaseに送信するヘルパー
+// applyItemから分離し、両プレイヤーが対称に送信できるようにした
+function sendItemEvent(itemType, itemR, itemC) {
+  if (!isOnline || !roomId) return;
+  // [変更] Date.now()禁止 → ServerValue.TIMESTAMP使用
+  db.ref(`rooms/${roomId}/events`).push({
+    type: 'item',
+    player: myRole,
+    itemType,
+    itemR: itemR ?? null,
+    itemC: itemC ?? null,
+    ts: firebase.database.ServerValue.TIMESTAMP,
+  });
 }
 
 // 塗り替えたマスのリストに敵がいれば初期位置へワープ（メテオ・ミサイル・ビーム共通）
@@ -2982,7 +3019,14 @@ function pickupItem(r, c, who) {
   if (G.mapItems[itemKey]) {
     const type = G.mapItems[itemKey];
     delete G.mapItems[itemKey];
+    // [変更] アイテム取得時にFirebaseから個別remove()。丸ごとset()をやめた
+    if (isOnline && roomId && G.itemFbKeys[itemKey]) {
+      db.ref(`rooms/${roomId}/items/${G.itemFbKeys[itemKey]}`).remove();
+      delete G.itemFbKeys[itemKey];
+    }
     applyItem(type, who, r, c);
+    // [変更] 自分がアイテムを使ったことを送信（who===1のみ。cpu/相手は別途受信で処理）
+    if (who === 1) sendItemEvent(type, r, c);
     playItem();
   }
 }
@@ -3004,8 +3048,15 @@ function spawnItem() {
   const type = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
   G.mapItems[key] = type;
 
-  if (isOnline && roomId && myRole === 'player1') {
-    db.ref(`rooms/${roomId}/items`).set(G.mapItems);
+  // [変更] spawnerロールを持つプレイヤーのみFirebaseにpush
+  // G.itemSpawner: 'player1'|'player2' — room作成時にセットされ、切断時に切り替わる
+  if (isOnline && roomId && myRole === G.itemSpawner) {
+    const [ir, ic] = key.split(',').map(Number);
+    const fbRef = db.ref(`rooms/${roomId}/items`).push({
+      r: ir, c: ic, type,
+      ts: firebase.database.ServerValue.TIMESTAMP,
+    });
+    G.itemFbKeys[key] = fbRef.key;
   }
 }
 
@@ -3121,7 +3172,10 @@ function startTimers() {
     renderAll();
   }, 1000);
 
-  if (settings.itemInterval > 0 && (!isOnline || myRole === 'player1')) {
+  // items生成はroom単位で管理。room内にspawnerロールを持ち、
+  // そのロールのプレイヤーのみFirebaseにpushする（両者がローカルタイマーは持つ）
+  // spawnerは接続中のプレイヤーが担う（初期はplayer1、切断時はplayer2が引き継ぐ）
+  if (settings.itemInterval > 0) {
     G.itemTimer = setInterval(() => {
       if (G.running) { spawnItem(); renderAll(); }
     }, settings.itemInterval * 1000);
@@ -3371,11 +3425,14 @@ function endGame() {
   document.getElementById('result-miss').textContent     = G.missCount;
   document.getElementById('result-maxcombo').textContent = G.maxCombo;
 
-  // オンライン対戦の場合はルームを削除
+  // リスナーを先に切り離してからルームを削除（残留イベントの誤適用を防ぐ）
   if (roomId) {
+    detachOnlineListeners();
+    db.ref(`rooms/${roomId}/players/${myRole}`).onDisconnect().cancel();
     db.ref(`rooms/${roomId}`).remove();
     roomId = null;
   }
+  isOnline = false;
 
   G.endScreenTimer = setTimeout(() => showScreen('end-screen'), 800);
 }
@@ -3384,152 +3441,385 @@ function endGame() {
 function sleep(ms) { return new Promise(res => setTimeout(res, ms)); }
 
 // ===== オンライン対戦 =====
-function startOnlineGame() {
-  const input = prompt('ルームIDを入力（作成・参加どちらも同じIDを使います）');
-  if (!input) return;
-  roomId = input.toUpperCase().trim();
+/*
+ * Firebase パス構造:
+ *   lobby/waiting/{userId}: true  — 待機登録（onDisconnect付き）
+ *   rooms/{roomId}/
+ *     status: 'playing'
+ *     players: { player1: uid, player2: uid }
+ *     spawner: 'player1'|'player2'  — items生成責任者
+ *     settings: { n, time, wordLen, itemInterval }
+ *     words: [...]
+ *     startedAt: ServerTimestamp  — 基準時刻
+ *     players/{role}: { r, c, ts }  — 位置同期
+ *     captures/{id}: { player, cells:[{r,c}], ts }  — 差分陣地
+ *     events/{id}: { player, itemType, itemR, itemC, ts }  — アイテム使用
+ *     items/{id}: { r, c, type, ts }  — マップアイテム
+ */
 
-  db.ref(`rooms/${roomId}`).once('value', snap => {
-    if (snap.val()) {
-      // すでに存在 → 参加
-      myRole = 'player2';
-      joinRoom(roomId);
+// 各種タイムスタンプ基準（ゲーム開始時にサーバー値で初期化）
+const lastTs = {};
+
+// リスナー管理: { ref, event } の配列。detachOnlineListeners()で一括off()
+const _listeners = [];
+
+// ロビー待機用リスナー参照
+let _lobbyWaitRef = null;
+
+// マッチング中フラグ（transaction二重実行防止）
+let _matchingInProgress = false;
+
+// ===== ロビー UI =====
+function setLobbyUI(searching) {
+  const onlineBtn = document.getElementById('online-btn');
+  const cancelBtn = document.getElementById('lobby-cancel-btn');
+  const statusEl  = document.getElementById('lobby-status');
+  if (searching) {
+    if (onlineBtn) { onlineBtn.disabled = true;  onlineBtn.style.opacity = '0.5'; }
+    if (cancelBtn) { cancelBtn.style.display = 'inline-block'; }
+    if (statusEl)  { statusEl.style.display  = 'block'; }
+  } else {
+    if (onlineBtn) { onlineBtn.disabled = false; onlineBtn.style.opacity = '1'; }
+    if (cancelBtn) { cancelBtn.style.display = 'none'; }
+    if (statusEl)  { statusEl.style.display  = 'none'; }
+  }
+}
+
+// ===== ロビー入退場 =====
+
+// VS PLAYERボタン押下時
+function enterLobby() {
+  if (!myUserId) { alert('認証中です。少し待ってください。'); return; }
+  setLobbyUI(true);
+
+  // lobby/waiting 全体に対してtransactionで「登録＋相手確認」を原子的に実行
+  // これにより2人が同時にplayer1になることを防ぐ
+  _tryMatchTransaction();
+}
+
+// CANCEL押下 or エラー時
+function leaveLobby() {
+  _cleanupLobby();
+  setLobbyUI(false);
+}
+
+// ロビー関連リソースをすべてクリーンアップ
+function _cleanupLobby() {
+  if (_lobbyWaitRef) { _lobbyWaitRef.off(); _lobbyWaitRef = null; }
+  _matchingInProgress = false;
+  if (myUserId) {
+    db.ref(`lobby/waiting/${myUserId}`).onDisconnect().cancel();
+    db.ref(`lobby/waiting/${myUserId}`).remove();
+  }
+}
+
+// ===== マッチングロジック =====
+// lobby/waiting 全体を1回のtransactionで操作する
+// 自分を登録しながら相手を同時に取得 → 2人同時player1を防ぐ
+function _tryMatchTransaction() {
+  if (_matchingInProgress) return;
+  _matchingInProgress = true;
+
+  let _resolvedOpponent = null; // transaction内で確定した相手UID（クロージャで管理、Firebaseには書かない）
+
+  db.ref('lobby/waiting').transaction(waiting => {
+    _resolvedOpponent = null; // リトライ時にリセット
+    if (waiting === null) waiting = {};
+
+    const others = Object.keys(waiting).filter(uid => uid !== myUserId);
+
+    if (others.length === 0) {
+      // 相手なし → 自分だけ登録して待機
+      waiting[myUserId] = true;
+      return waiting;
+    }
+
+    // 相手がいる → ランダムで1人選んでペア確定
+    // 両者ともwaitingから削除（ルームへ移行）
+    const opponentId = others[Math.floor(Math.random() * others.length)];
+    delete waiting[opponentId];
+    delete waiting[myUserId];
+    _resolvedOpponent = opponentId; // クロージャに保存（__matched__ノードは使わない）
+    return waiting;
+  }, (error, committed, snap) => {
+    _matchingInProgress = false;
+
+    if (error) {
+      console.error('Lobby transaction error:', error);
+      leaveLobby();
+      return;
+    }
+    if (!committed) return; // abort → 再試行不要
+
+    if (_resolvedOpponent !== null) {
+      // 自分がマッチを成立させた → player1としてroom作成
+      _createMatchRoom(_resolvedOpponent);
+
+    } else if ((snap.val() || {})[myUserId] === true) {
+      // 相手がまだいない → 待機。onDisconnectを設定してroom監視開始
+      db.ref(`lobby/waiting/${myUserId}`).onDisconnect().remove();
+      _listenForMyRoom();
+
     } else {
-      // 存在しない → 作成
-      myRole = 'player1';
-      createRoom(roomId);
-      alert(`ルームID「${roomId}」を作成しました。相手に伝えてください。`);
+      // 相手のtransactionで自分が削除された（opponent側として選ばれた）→ room監視開始
+      _listenForMyRoom();
     }
   });
 }
 
-function createRoom(roomId) {
-  // ホスト側で単語を生成してFirebaseに保存
+// 自分が含まれるroomをFirebase上で検知してplayer2として開始する
+// rooms をquery orderByChild('players/player2').equalTo(myUserId) で監視
+function _listenForMyRoom() {
+  if (_lobbyWaitRef) _lobbyWaitRef.off();
+
+  // rooms以下で player2 === myUserId のroomをクエリ
+  _lobbyWaitRef = db.ref('rooms').orderByChild('players/player2').equalTo(myUserId);
+  _lobbyWaitRef.on('child_added', snap => {
+    const room = snap.val();
+    if (!room) return;
+    _lobbyWaitRef.off();
+    _lobbyWaitRef = null;
+
+    // room発見 → player2として参加
+    roomId = snap.key;
+    myRole = 'player2';
+
+    db.ref(`lobby/waiting/${myUserId}`).onDisconnect().cancel();
+    db.ref(`lobby/waiting/${myUserId}`).remove();
+
+    const s = room.settings || {};
+    if (s.n)            settings.n            = Number(s.n);
+    if (s.time)         settings.time         = Number(s.time);
+    if (s.wordLen)      settings.wordLen      = Number(s.wordLen);
+    if (s.itemInterval) settings.itemInterval = Number(s.itemInterval);
+
+    const startedAt = room.startedAt || 0;
+    setLobbyUI(false);
+    startOnlineMatch(room.words, startedAt);
+  });
+}
+
+// ===== ルーム作成（player1） =====
+function _createMatchRoom(opponentId) {
   const words = selectWords(settings.n, settings.wordLen);
+  // ランダムなルームIDを生成
+  roomId = 'R' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  myRole = 'player1';
+
+  // 初期アイテムをroom作成と同時に書き込む（両クライアントがchild_addedで受信）
+  const initItems = {};
+  const n = settings.n;
+  const forbidden = new Set(['0,0', `${n-1},${n-1}`]);
+  const allCells = [];
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (!forbidden.has(`${r},${c}`)) allCells.push(`${r},${c}`);
+  // shuffle
+  for (let i = allCells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [allCells[i], allCells[j]] = [allCells[j], allCells[i]];
+  }
+  const count = Math.min(settings.initItems, allCells.length);
+  for (let i = 0; i < count; i++) {
+    const [ir, ic] = allCells[i].split(',').map(Number);
+    const pushKey = db.ref().push().key; // クライアント側でkeyを生成
+    initItems[pushKey] = {
+      r: ir, c: ic,
+      type: ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)],
+      ts: firebase.database.ServerValue.TIMESTAMP,
+    };
+  }
 
   db.ref(`rooms/${roomId}`).set({
-    status: 'waiting',
+    status: 'playing',
+    uids: { player1: myUserId, player2: opponentId }, // セキュリティルール用の不変UIDマップ
+    players: { player1: myUserId, player2: opponentId },
+    spawner: 'player1', // items生成責任者（初期はplayer1）
     settings: {
       n: settings.n,
       time: settings.time,
       wordLen: settings.wordLen,
       itemInterval: settings.itemInterval,
     },
-    words: words, // ← 単語リストを保存
-    player1: { r: 0, c: 0 },
-    player2: { r: settings.n-1, c: settings.n-1 },
-  });
-
-  db.ref(`rooms/${roomId}/status`).on('value', snap => {
-    if (snap.val() === 'playing') {
-      startOnlineMatch(words); // ← wordsを渡す
-    }
-  });
-}
-
-function joinRoom(roomId) {
-  db.ref(`rooms/${roomId}`).once('value', snap => {
-    const room = snap.val();
-    if (!room) { alert('ルームが見つかりません。'); return; }
-
-    const s = room.settings;
-    if (s) {
-      settings.n            = Number(s.n);
-      settings.time         = Number(s.time);
-      settings.wordLen      = Number(s.wordLen);
-      settings.itemInterval = Number(s.itemInterval);
-    }
-
-    // ホストが保存した単語リストを使う
-    const words = room.words;
-
-    db.ref(`rooms/${roomId}/status`).set('playing').then(() => {
-      startOnlineMatch(words); // ← wordsを渡す
+    words,
+    startedAt: firebase.database.ServerValue.TIMESTAMP,
+    items: Object.keys(initItems).length > 0 ? initItems : null,
+  }).then(() => {
+    // startedAtの実値を読み返す（ServerValue.TIMESTAMPはプレースホルダのため）
+    db.ref(`rooms/${roomId}/startedAt`).once('value', tsSnap => {
+      const startedAt = tsSnap.val() || 0;
+      setLobbyUI(false);
+      startOnlineMatch(words, startedAt);
     });
   });
 }
 
-function startOnlineMatch(words) {
-  // 通常のstartGame()を呼んでCPUループだけ止める
+// ===== ゲーム開始（オンライン） =====
+function startOnlineMatch(words, startedAt) {
   isOnline = true;
-  startGame(words); // ← wordsを渡す
-  // CPU処理は不要なので上書きで停止（cpuLoopはG.runningで自然に終わる）
+  startGame(words);
 
   // player2は自分と相手の位置・陣地を入れ替える
+  // ローカルエンジンは owner=1=自分/owner=2=相手 固定のため
   if (myRole === 'player2') {
     const n = G.n;
-    // 自分の位置を右下に
-    G.player.r = n - 1;
-    G.player.c = n - 1;
-    // 相手の位置を左上に
-    G.cpu.r = 0;
-    G.cpu.c = 0;
-    // 陣地の初期オーナーも入れ替え
-    getCell(0, 0).owner = 2;        // 相手(player1)の陣地
-    getCell(n-1, n-1).owner = 1;    // 自分(player2)の陣地
+    G.player.r = n - 1; G.player.c = n - 1;
+    G.cpu.r = 0;        G.cpu.c = 0;
+    getCell(0, 0).owner     = 2;
+    getCell(n-1, n-1).owner = 1;
     renderAll();
   }
 
-  // 自分の動きをFirebaseに送信
-  watchMyMovement();
-  // 相手の動きを受信
-  watchOpponentMovement();
+  // 両者が同一のサーバー基準時刻で lastTs を初期化
+  // startedAt より古いデータはすべて過去ゲームの残留として弾く
+  const base = startedAt || 0;
+  lastTs.player1     = base;
+  lastTs.player2     = base;
+  lastTs.cap_player1 = base;
+  lastTs.cap_player2 = base;
+  lastTs.eventsFrom  = base;
+
+  setupOnlineListeners();
 }
 
-// 自分の位置変化をFirebaseに送信
-function watchMyMovement() {
-  // playerMoveTo をフック（送信処理を追記）
-  const origMove = playerMoveTo;
-  window._onlinePlayerMove = (r, c) => {
-    db.ref(`rooms/${roomId}/${myRole}`).set({ r, c, ts: Date.now() });
-  };
+// ===== リスナー一括解除 =====
+function detachOnlineListeners() {
+  // _listeners配列に登録された全リスナーをoff()
+  _listeners.forEach(({ ref, event, fn }) => ref.off(event, fn));
+  _listeners.length = 0;
 }
 
-// 相手の動きを受信してグリッドに反映
-function watchOpponentMovement() {
+// リスナーを登録しつつ_listenersに記録するヘルパー
+function _on(ref, event, fn) {
+  ref.on(event, fn);
+  _listeners.push({ ref, event, fn });
+}
+
+// ===== 同期リスナー設定 =====
+function setupOnlineListeners() {
   const opponentRole = myRole === 'player1' ? 'player2' : 'player1';
+  const n = G.n;
 
-  db.ref(`rooms/${roomId}/${opponentRole}`).on('value', snap => {
+  // --- 相手の位置同期 ---
+  _on(db.ref(`rooms/${roomId}/players/${opponentRole}`), 'value', snap => {
     const data = snap.val();
     if (!data || !G.running) return;
+    // 過去ゲームのキャッシュと同一ゲーム内の遅延を二重チェック
+    if (data.ts <= lastTs[opponentRole]) return;
 
-    // 陣地情報を同期（自分の陣地は上書きしない）
-    if (data.cells) {
-      data.cells.forEach((owner, idx) => {
-        // ↓ 送信者視点の1と2を受信者視点に反転して適用
-        if (owner === 1) G.cells[idx].owner = 2; // 相手の陣地
-        if (owner === 2) G.cells[idx].owner = 1; // 自分の陣地
-        if (owner === 0) G.cells[idx].owner = 0; // 中立
-      });
-    }
+    // ⑤ チート対策: 座標範囲バリデーション
+    if (typeof data.r !== 'number' || typeof data.c !== 'number') return;
+    if (data.r < 0 || data.r >= n || data.c < 0 || data.c >= n) return;
 
-    // 相手キャラの位置を更新
+    lastTs[opponentRole] = data.ts;
     G.cpu.r = data.r;
     G.cpu.c = data.c;
-
     renderAll();
   });
 
-  // ↓ 追加：アイテムイベントの受信
-  db.ref(`rooms/${roomId}/event`).on('value', snap => {
+  // --- 相手の陣地占領を受信 ---
+  _on(db.ref(`rooms/${roomId}/captures`), 'child_added', snap => {
+    const cap = snap.val();
+    if (!cap || !G.running) return;
+    if (cap.player === myRole) return; // 自分のは適用済み
+    if (cap.ts <= lastTs[`cap_${cap.player}`]) return; // 遅延/重複
+
+    // ⑤ チート対策: cellsバリデーション（配列か、座標が範囲内か）
+    if (!Array.isArray(cap.cells)) return;
+    const valid = cap.cells.every(({r, c}) =>
+      typeof r === 'number' && typeof c === 'number' &&
+      r >= 0 && r < n && c >= 0 && c < n
+    );
+    if (!valid) return;
+
+    lastTs[`cap_${cap.player}`] = cap.ts;
+    cap.cells.forEach(({r, c}) => { getCell(r, c).owner = 2; });
+    renderAll();
+  });
+
+  // --- アイテム使用イベントを受信 ---
+  _on(db.ref(`rooms/${roomId}/events`), 'child_added', snap => {
     const ev = snap.val();
     if (!ev || !G.running) return;
-    // 自分が送ったイベントは無視
-    if (ev.who === myRole) return;
+    if (ev.player === myRole) return;
+    if (ev.ts < lastTs.eventsFrom) return; // 過去ゲームの残留イベント
 
-    // 相手が使ったアイテムを自分の画面に適用
-    // whoを反転して適用（相手が使った = こちらから見て2が使った）
     applyItem(ev.itemType, 2, ev.itemR, ev.itemC);
     renderAll();
   });
 
-  // アイテム出現の受信（両者がFirebaseを正として同期）
-  db.ref(`rooms/${roomId}/items`).on('value', snap => {
-    const items = snap.val();
-    if (!G.running) return;
-    G.mapItems = items || {};
-    renderAll();
+  // --- アイテム出現・消滅の同期 ---
+  _on(db.ref(`rooms/${roomId}/items`), 'child_added', snap => {
+    const item = snap.val();
+    if (!item) return;
+    const key = `${item.r},${item.c}`;
+    G.itemFbKeys[key] = snap.key;
+    if (!G.mapItems[key]) {
+      G.mapItems[key] = item.type;
+      if (G.running) renderAll();
+    }
   });
+
+  _on(db.ref(`rooms/${roomId}/items`), 'child_removed', snap => {
+    const item = snap.val();
+    if (!item) return;
+    const key = `${item.r},${item.c}`;
+    delete G.mapItems[key];
+    delete G.itemFbKeys[key];
+    if (G.running) renderAll();
+  });
+
+  // --- 相手の切断検知 ---
+  // rooms/{roomId}/players/{opponentRole} が null になったら相手が切断
+  // ただし位置同期のリスナーと共用するため、別途 spawner 監視も行う
+  _on(db.ref(`rooms/${roomId}/spawner`), 'value', snap => {
+    const spawner = snap.val();
+    if (spawner) G.itemSpawner = spawner;
+  });
+
+  // 相手の接続状態を監視（rooms/{roomId}/players/{opponentRole} が消えたら切断）
+  // rooms自体のvalue監視でstatusが消えたら終了
+  _on(db.ref(`rooms/${roomId}`), 'value', snap => {
+    if (!G.running) return;
+    const room = snap.val();
+    // roomが削除されたか、相手プレイヤーデータが完全に消えた場合 → 相手切断 → 勝利
+    if (room === null) {
+      _handleOpponentDisconnect();
+    }
+  });
+
+  // 自分のプレイヤーデータに onDisconnect を設定（ゴーストプレイヤー対策）
+  const myPlayerRef = db.ref(`rooms/${roomId}/players/${myRole}`);
+  myPlayerRef.onDisconnect().remove();
+
+  // roomが消えたとき自分のwaitingエントリも消す（念のため）
+  db.ref(`lobby/waiting/${myUserId}`).onDisconnect().remove();
+}
+
+// 相手切断時の処理
+function _handleOpponentDisconnect() {
+  if (!G.running) return;
+  G.running = false;
+  clearInterval(G.timerInterval);
+  clearInterval(G.itemTimer);
+  document.removeEventListener('keydown', handleKeydown);
+  detachOnlineListeners();
+
+  // 相手切断 → 自分の勝利として結果を表示
+  let pScore = 0, cScore = 0;
+  G.cells.forEach(cell => { if(cell.owner===1)pScore++; else if(cell.owner===2)cScore++; });
+  const titleEl = document.getElementById('result-title');
+  titleEl.textContent = 'OPPONENT DISCONNECTED';
+  titleEl.className = 'result-title win';
+  document.getElementById('result-player').textContent = `Player: ${pScore}`;
+  document.getElementById('result-cpu').textContent    = `CPU: ${cScore}`;
+  document.getElementById('result-kpm').textContent      = '-';
+  document.getElementById('result-miss').textContent     = G.missCount;
+  document.getElementById('result-maxcombo').textContent = G.maxCombo;
+
+  if (roomId) { db.ref(`rooms/${roomId}`).remove(); roomId = null; }
+  isOnline = false;
+  G.endScreenTimer = setTimeout(() => showScreen('end-screen'), 800);
 }
 
 // ===== BOOT =====
