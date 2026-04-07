@@ -1109,6 +1109,34 @@ let myRole = null;   // 'player1' or 'player2'
 let roomId = null;
 let isOnline = false;
 
+// ===== 絶対座標ヘルパー =====
+// 絶対座標: G.p1=player1(左上), G.p2=player2(右下) — 常に不変
+// myP()/oppP() で「自分」「相手」を取得。offline時は p1=自分固定
+function myP()         { return myRole === 'player2' ? G.p2 : G.p1; }
+function oppP()        { return myRole === 'player2' ? G.p1 : G.p2; }
+function myOwner()     { return myRole === 'player2' ? 2 : 1; }
+function oppOwner()    { return myRole === 'player2' ? 1 : 2; }
+function oppRole()     { return myRole === 'player2' ? 'player1' : 'player2'; }
+function isMyFreeze()  { return Date.now() < (myP().freezeUntil  || 0); }
+function isOppFreeze() { return Date.now() < (oppP().freezeUntil || 0); }
+function mySpeedOn()   { return Date.now() < (myP().speedUntil   || 0); }
+function oppSpeedOn()  { return Date.now() < (oppP().speedUntil  || 0); }
+// onlineで相手のplayer/*ノードに書く（Banish/Freeze/Bomb warpなど攻撃側が敵座標を書く）
+function writeOppPos(r, c) {
+  if (!isOnline || !roomId) return;
+  db.ref(`rooms/${roomId}/players/${oppRole()}`).update({ r, c });
+}
+function writeOppFreeze(ms) {
+  if (!isOnline || !roomId) return;
+  db.ref(`rooms/${roomId}/players/${oppRole()}`).update({ freezeUntil: Date.now() + ms });
+}
+function writeGridCells(cells, ownerNum) {
+  if (!isOnline || !roomId) return;
+  const upd = {};
+  cells.forEach(({r, c}) => { upd[`${r}_${c}`] = ownerNum; });
+  db.ref(`rooms/${roomId}/grid`).update(upd);
+}
+
 'use strict';
 
 // ===== WORD LIST (300+ unique words of varying lengths) =====
@@ -2149,16 +2177,15 @@ function startGame(wordsOverride = null) {
   G = {
     n,
     cells: [], // flat array of cell data
-    player: { r: 0, c: 0 },
-    cpu: { r: n-1, c: n-1 },
+    // 絶対座標: p1=player1(左上固定), p2=player2(右下固定)
+    // myP()/oppP() ヘルパーで「自分」「相手」を取得
+    p1: { r: 0,   c: 0,   freezeUntil: 0, speedUntil: 0 },
+    p2: { r: n-1, c: n-1, freezeUntil: 0, speedUntil: 0 },
     timeLeft: settings.time,
     combo: 0,
     input: '',
-    // status effects
-    playerSpeed: 0,      // ms remaining for player speed
-    playerFrozen: 0,     // ms remaining
-    cpuSpeed: 0,         // ms remaining
-    cpuFrozen: 0,        // ms remaining
+    // status effects: p1/p2 の freezeUntil/speedUntil (絶対ms) で管理
+    // G.playerFrozen / G.cpuFrozen / G.playerSpeed / G.cpuSpeed は廃止
     totalKeystrokes: 0,
     missCount: 0,
     maxCombo: 0,
@@ -2193,7 +2220,7 @@ function startGame(wordsOverride = null) {
       });
     }
   }
-  // Set initial territories
+  // 初期陣地: owner=1 = player1(左上), owner=2 = player2(右下) — 絶対値で統一
   getCell(0, 0).owner = 1;
   getCell(n-1, n-1).owner = 2;
 
@@ -2298,7 +2325,8 @@ function renderAll() {
 
   // Scores
   let pScore = 0, cScore = 0;
-  G.cells.forEach(cell => { if (cell.owner === 1) pScore++; else if (cell.owner === 2) cScore++; });
+  const mo = myOwner();
+  G.cells.forEach(cell => { if (cell.owner === mo) pScore++; else if (cell.owner) cScore++; });
   document.getElementById('score-player').textContent = pScore;
   document.getElementById('score-cpu').textContent = cScore;
 
@@ -2308,16 +2336,16 @@ function renderAll() {
       const el = document.getElementById(`cell-${r}-${c}`);
       if (!el) continue;
 
-      // Layer 1: owner background
+      // Layer 1: owner background (絶対owner値をmyOwner()で色変換)
       el.className = 'cell';
-      el.className += cell.owner === 1 ? ' player' : cell.owner === 2 ? ' cpu' : ' neutral';
+      el.className += cell.owner === mo ? ' player' : cell.owner ? ' cpu' : ' neutral';
 
       // Candidate highlight
       if (candidates.has(`${r},${c}`)) el.classList.add('candidate');
 
-      // Layer 2/3: character position
-      const hasPlayer = G.player.r === r && G.player.c === c;
-      const hasCpu = G.cpu.r === r && G.cpu.c === c;
+      // Layer 2/3: character position (myP()/oppP()で絶対座標から自分/相手を取得)
+      const hasPlayer = myP().r === r && myP().c === c;
+      const hasCpu = oppP().r === r && oppP().c === c;
       if (hasPlayer) el.classList.add('has-player');
       if (hasCpu) el.classList.add('has-cpu');
 
@@ -2346,7 +2374,7 @@ function renderAll() {
       }
       if (hasCpu) {
         el.appendChild(createCpuSVG());
-        if (G.cpuFrozen > 0) {
+        if (isOppFreeze()) {
           const fov = document.createElement('div');
           fov.className = 'freeze-overlay';
           el.appendChild(fov);
@@ -2530,7 +2558,7 @@ function renderHUD() {
 
   // CPU input display
   const cpuDisp = document.getElementById('cpu-input-display');
-  if (G.cpuFrozen > 0) {
+  if (isOppFreeze()) {
     cpuDisp.textContent = '❄ FROZEN';
     cpuDisp.style.color = '#80d0ff';
   } else {
@@ -2539,7 +2567,7 @@ function renderHUD() {
   }
 
   const inp = document.getElementById('input-display');
-  if (G.playerFrozen > 0) {
+  if (isMyFreeze()) {
     inp.textContent = '❄ FROZEN';
     inp.style.color = '#80d0ff';
   } else {
@@ -2549,33 +2577,38 @@ function renderHUD() {
 }
 
 function renderStatus() {
+  const now = Date.now();
   const pSt = document.getElementById('player-status');
   pSt.innerHTML = '';
-  if (G.playerSpeed > 0) {
+  const mySpeedRem = myP().speedUntil - now;
+  if (mySpeedRem > 0) {
     const b = document.createElement('div');
     b.className = 'status-badge status-speed';
-    b.textContent = `⚡ SPEED ${(G.playerSpeed/1000).toFixed(1)}s`;
+    b.textContent = `⚡ SPEED ${(mySpeedRem/1000).toFixed(1)}s`;
     pSt.appendChild(b);
   }
-  if (G.playerFrozen > 0) {
+  const myFreezeRem = myP().freezeUntil - now;
+  if (myFreezeRem > 0) {
     const b = document.createElement('div');
     b.className = 'status-badge status-freeze';
-    b.textContent = `❄ FROZEN ${(G.playerFrozen/1000).toFixed(1)}s`;
+    b.textContent = `❄ FROZEN ${(myFreezeRem/1000).toFixed(1)}s`;
     pSt.appendChild(b);
   }
 
   const cSt = document.getElementById('cpu-status');
   cSt.innerHTML = '';
-  if (G.cpuSpeed > 0) {
+  const oppSpeedRem = oppP().speedUntil - now;
+  if (oppSpeedRem > 0) {
     const b = document.createElement('div');
     b.className = 'status-badge status-speed';
-    b.textContent = `⚡ SPEED ${(G.cpuSpeed/1000).toFixed(1)}s`;
+    b.textContent = `⚡ SPEED ${(oppSpeedRem/1000).toFixed(1)}s`;
     cSt.appendChild(b);
   }
-  if (G.cpuFrozen > 0) {
+  const oppFreezeRem = oppP().freezeUntil - now;
+  if (oppFreezeRem > 0) {
     const b = document.createElement('div');
     b.className = 'status-badge status-freeze';
-    b.textContent = `❄ FROZEN ${(G.cpuFrozen/1000).toFixed(1)}s`;
+    b.textContent = `❄ FROZEN ${(oppFreezeRem/1000).toFixed(1)}s`;
     cSt.appendChild(b);
   }
 }
@@ -2583,37 +2616,32 @@ function renderStatus() {
 // ===== REACHABLE RANGE =====
 function getPlayerRange() {
   const range = new Set();
-  const r = G.player.r, c = G.player.c;
+  const r = myP().r, c = myP().c;
   const n = G.n;
 
-  if (G.playerSpeed > 0) {
+  if (mySpeedOn()) {
     // speed中：上下左右2マス＋斜め1マス
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
-      // 1マス先
       const nr1 = r+dr, nc1 = c+dc;
       if (nr1>=0&&nr1<n&&nc1>=0&&nc1<n) range.add(`${nr1},${nc1}`);
-      // 2マス先
       const nr2 = r+dr*2, nc2 = c+dc*2;
       if (nr2>=0&&nr2<n&&nc2>=0&&nc2<n) range.add(`${nr2},${nc2}`);
     });
-    // 斜め1マス
     [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
       const nr = r+dr, nc = c+dc;
       if (nr>=0&&nr<n&&nc>=0&&nc<n) range.add(`${nr},${nc}`);
     });
   } else {
-    // 通常：上下左右1マス
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
       const nr = r+dr, nc = c+dc;
       if (nr>=0&&nr<n&&nc>=0&&nc<n) range.add(`${nr},${nc}`);
     });
   }
-    // 現在地マスも入力可能（ただしCPUの初期位置にいるときは除外）
-   const cpuHome = { r: G.n-1, c: G.n-1 };
-   const atCpuHome = G.player.r === cpuHome.r && G.player.c === cpuHome.c;
-   if (!atCpuHome) {
-     range.add(`${r},${c}`);
-   }
+  // 現在地も入力可能（ただし相手の初期マスにいるときは除外）
+  // 相手の初期位置: player1=左上(0,0), player2=右下(n-1,n-1) — 固定
+  const oppHomeR = myOwner() === 1 ? n-1 : 0;
+  const oppHomeC = myOwner() === 1 ? n-1 : 0;
+  if (!(r === oppHomeR && c === oppHomeC)) range.add(`${r},${c}`);
   return range;
 }
 
@@ -2651,44 +2679,36 @@ function paintPath(fromR, fromC, toR, toC, owner) {
 
 // ===== PLAYER MOVE (via typing) =====
 function playerMoveTo(r, c) {
-  const fromR = G.player.r, fromC = G.player.c;
+  const fromR = myP().r, fromC = myP().c;
+  const owner = myOwner();
 
-  // Paint path 現在地への移動の場合も必ず自マスを塗る
-  // [変更] paintPathの戻り値で塗ったセルを収集し、差分のみ送信する
+  // 自分の絶対owner番号で塗る
   let paintedCells;
   if (fromR === r && fromC === c) {
-    getCell(r, c).owner = 1;
+    getCell(r, c).owner = owner;
     paintedCells = [{r, c}];
   } else {
-    paintedCells = paintPath(fromR, fromC, r, c, 1);
+    paintedCells = paintPath(fromR, fromC, r, c, owner);
   }
 
-  G.player.r = r;
-  G.player.c = c;
+  myP().r = r;
+  myP().c = c;
 
-  // 衝突
-  if (r === G.cpu.r && c === G.cpu.c) {
-    G.cpu.r = G.n - 1;
-    G.cpu.c = G.n - 1;
+  // 衝突：相手をホームへワープ（offline時のみ発生、online時はBanish等で処理）
+  if (!isOnline && r === oppP().r && c === oppP().c) {
+    const n = G.n;
+    oppP().r = n - 1; oppP().c = n - 1;
     playWarp();
   }
 
-  // アイテム入手（着地時に即使用）
-  pickupItem(r, c, 1);
-
+  pickupItem(r, c, owner);
   playCapture();
   G.input = '';
 
   if (isOnline && roomId) {
-    // [変更] Date.now()禁止 → ServerValue.TIMESTAMPを使用
-    db.ref(`rooms/${roomId}/players/${myRole}`).set({
-      r, c, ts: firebase.database.ServerValue.TIMESTAMP
-    });
-    db.ref(`rooms/${roomId}/captures`).push({
-      player: myRole,
-      cells: paintedCells,
-      ts: firebase.database.ServerValue.TIMESTAMP,
-    });
+    // 状態同期: 位置をplayers/{myRole}に、塗ったセルをgridに書く
+    db.ref(`rooms/${roomId}/players/${myRole}`).update({ r, c });
+    writeGridCells(paintedCells, owner);
   }
 
   renderAll();
@@ -2696,113 +2716,102 @@ function playerMoveTo(r, c) {
 
 // ===== ARROW KEY MOVE (player's own territory) =====
 function playerArrowMove(dr, dc) {
-  const r = G.player.r + dr, c = G.player.c + dc;
+  const r = myP().r + dr, c = myP().c + dc;
   const n = G.n;
   if (r < 0 || r >= n || c < 0 || c >= n) return;
   const cell = getCell(r, c);
-  if (!cell || cell.owner !== 1) return;
-  G.player.r = r;
-  G.player.c = c;
-  pickupItem(r, c, 1); // 自陣でもアイテム拾える
-  // [変更] 矢印移動も位置を送信（タイプ移動と統一）。ServerValue.TIMESTAMP使用
+  if (!cell || cell.owner !== myOwner()) return;
+  myP().r = r;
+  myP().c = c;
+  pickupItem(r, c, myOwner()); // 自陣でもアイテム拾える
   if (isOnline && roomId) {
-    db.ref(`rooms/${roomId}/players/${myRole}`).set({
-      r, c, ts: firebase.database.ServerValue.TIMESTAMP
-    });
+    db.ref(`rooms/${roomId}/players/${myRole}`).update({ r, c });
   }
   renderAll();
 }
 
 // ===== ITEMS =====
 function usePlayerItem(slotIdx) {
-  const item = G.player.items[slotIdx];
-  if (!item) return;
-  G.player.items[slotIdx] = null;
-  applyItem(item, 1);
-  // [変更] アイテム使用を送信（手動使用。itemR/Cはnull=スロット起動）
-  sendItemEvent(item, null, null);
+  // スロット使用（現在は自動即時使用のため実質デッドコード）
   renderAll();
 }
 
-function applyItem(type, who, itemR, itemC) {
-  // who: 1=player, 2=cpu
-  // itemR, itemC: アイテムがあったマス座標（beam用）
+// attackerOwner: 1 or 2 (絶対オーナー番号)
+// itemR, itemC: アイテムマス座標（beam/missile用）
+function applyItem(type, attackerOwner, itemR, itemC) {
   switch(type) {
     case 'speed':
-      if (who === 1) { G.playerSpeed = 10000; playTone(600,'sine',0.3); }
-      else           { G.cpuSpeed   = 10000; playTone(600,'sawtooth',0.2); }
+      // 速度アップは使用者自身に適用（ローカルのみ、Firebase不要）
+      (attackerOwner === 1 ? G.p1 : G.p2).speedUntil = Date.now() + 10000;
+      playTone(600, attackerOwner === myOwner() ? 'sine' : 'sawtooth', 0.3);
       break;
     case 'freeze':
-      if (who === 1) { G.cpuFrozen    = 5000; playFreeze(); }
-      else           { G.playerFrozen = 5000; playFreeze(); }
+      // 凍結は相手に適用 → onlineではFirebaseに書いて相手の状態を更新
+      triggerFreeze(attackerOwner);
       break;
-    case 'bomb':
-      triggerBomb(who);
-      break;
-    case 'meteor':
-      triggerMeteor(who);
-      break;
-    case 'banish':
-      triggerBanish(who);
-      break;
-    case 'beam':
-      triggerBeam(who, itemR, itemC);
-      break;
-    case 'missile':
-      triggerMissile(who, itemR, itemC);
-      break;
+    case 'bomb':    triggerBomb(attackerOwner);              break;
+    case 'meteor':  triggerMeteor(attackerOwner);            break;
+    case 'banish':  triggerBanish(attackerOwner);            break;
+    case 'beam':    triggerBeam(attackerOwner, itemR, itemC);   break;
+    case 'missile': triggerMissile(attackerOwner, itemR, itemC); break;
   }
-
-  // [変更] Firebase送信をapplyItemから分離。送信は呼び出し元(usePlayerItem/pickupItem)が行う
 }
 
-// [追加] アイテム使用イベントをFirebaseに送信するヘルパー
-// applyItemから分離し、両プレイヤーが対称に送信できるようにした
-function sendItemEvent(itemType, itemR, itemC) {
-  if (!isOnline || !roomId) return;
-  // [変更] Date.now()禁止 → ServerValue.TIMESTAMP使用
-  db.ref(`rooms/${roomId}/events`).push({
-    type: 'item',
-    player: myRole,
-    itemType,
-    itemR: itemR ?? null,
-    itemC: itemC ?? null,
-    ts: firebase.database.ServerValue.TIMESTAMP,
-  });
+function triggerFreeze(attackerOwner) {
+  const victimP = attackerOwner === 1 ? G.p2 : G.p1;
+  victimP.freezeUntil = Date.now() + 5000;
+  playFreeze();
+  // 攻撃側のみFBに書く（自分が攻撃した場合のみ）
+  if (isOnline && roomId && attackerOwner === myOwner()) {
+    writeOppFreeze(5000);
+  }
 }
 
-// 塗り替えたマスのリストに敵がいれば初期位置へワープ（メテオ・ミサイル・ビーム共通）
-function warpIfHit(who, cells) {
-  const enemyPos  = who === 1 ? G.cpu    : G.player;
-  const enemyHome = who === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
-  if (cells.some(({r,c}) => r === enemyPos.r && c === enemyPos.c)) {
-    enemyPos.r = enemyHome.r;
-    enemyPos.c = enemyHome.c;
-    if (who === 2) G.input = '';
+// 塗ったマスに相手がいれば初期位置へワープ（Bomb/Meteor/Beam/Missile共通）
+// attackerOwner: 1 or 2。攻撃者が自分の場合のみFirebaseに書く
+function warpIfHit(attackerOwner, cells) {
+  const victimOwner = 3 - attackerOwner;
+  const victimP = victimOwner === 1 ? G.p1 : G.p2;
+  const homeR = victimOwner === 1 ? 0 : G.n - 1;
+  const homeC = victimOwner === 1 ? 0 : G.n - 1;
+  if (cells.some(({r,c}) => r === victimP.r && c === victimP.c)) {
+    victimP.r = homeR; victimP.c = homeC;
+    if (victimOwner === myOwner()) G.input = ''; // 自分がワープされた
+    if (isOnline && roomId && attackerOwner === myOwner()) {
+      writeOppPos(homeR, homeC);
+    }
     return true;
   }
   return false;
 }
 
-function triggerBomb(owner) {
+function triggerBomb(attackerOwner) {
   const n = G.n;
-  const enemyPos  = owner === 1 ? G.cpu    : G.player;
-  const enemyHome = owner === 1 ? {r:G.n-1, c:G.n-1} : {r:0, c:0};
-  const br = enemyPos.r, bc = enemyPos.c;
+  const victimOwner = 3 - attackerOwner;
+  const victimP = victimOwner === 1 ? G.p1 : G.p2;
+  const homeR = victimOwner === 1 ? 0 : n - 1;
+  const homeC = victimOwner === 1 ? 0 : n - 1;
+  const br = victimP.r, bc = victimP.c;
 
-  // 敵の現在位置 + 周囲8マスを塗り替え
+  const painted = [];
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
       const nr = br+dr, nc = bc+dc;
-      if (nr>=0&&nr<n&&nc>=0&&nc<n) getCell(nr,nc).owner = owner;
+      if (nr>=0&&nr<n&&nc>=0&&nc<n) {
+        getCell(nr,nc).owner = attackerOwner;
+        painted.push({r:nr, c:nc});
+      }
     }
   }
 
-  // 敵を強制的に初期位置へ
-  enemyPos.r = enemyHome.r;
-  enemyPos.c = enemyHome.c;
-  // プレイヤーがワープした場合は入力リセット
-  if (owner === 2) G.input = ''; // CPUが使った場合＝プレイヤーがワープ
+  victimP.r = homeR; victimP.c = homeC;
+  if (victimOwner === myOwner()) G.input = '';
+
+  // 攻撃側のみFBに書く（gridと敵位置を同時更新）
+  if (isOnline && roomId && attackerOwner === myOwner()) {
+    writeGridCells(painted, attackerOwner);
+    writeOppPos(homeR, homeC);
+  }
 
   playExplosion();
   const el = document.getElementById(`cell-${br}-${bc}`);
@@ -2814,24 +2823,24 @@ function triggerBomb(owner) {
   }
 }
 
-function triggerMeteor(who) {
+function triggerMeteor(attackerOwner) {
   const n = G.n;
-  const enemy = who === 1 ? 2 : 1;
+  const victimOwner = 3 - attackerOwner;
 
-  // 敵陣地のみを対象に収集
+  // 攻撃側のみランダム選択＆FB書き込みを行う（相手側は gridリスナー経由で受信）
   const enemyCells = [];
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
-      if (getCell(r,c).owner === enemy) enemyCells.push({r,c});
+      if (getCell(r,c).owner === victimOwner) enemyCells.push({r,c});
 
-  // シャッフルして最大9マス選択
   for (let i = enemyCells.length-1; i > 0; i--) {
     const j = Math.floor(Math.random()*(i+1));
     [enemyCells[i],enemyCells[j]] = [enemyCells[j],enemyCells[i]];
   }
   const hit = enemyCells.slice(0, 9);
 
-  const enemyHit = hit.some(({r,c}) => r === (who===1?G.cpu:G.player).r && c === (who===1?G.cpu:G.player).c);
+  const victimP = victimOwner === 1 ? G.p1 : G.p2;
+  const victimHit = hit.some(({r,c}) => r === victimP.r && c === victimP.c);
 
   playMeteor();
   const overlay = document.createElement('div');
@@ -2839,11 +2848,9 @@ function triggerMeteor(who) {
   document.body.appendChild(overlay);
   setTimeout(() => overlay.remove(), 800);
 
-  // 各マスに時間差で着弾演出 → 塗り替え
   hit.forEach(({r, c}, i) => {
-    const delay = i * 80;
     setTimeout(() => {
-      getCell(r, c).owner = who;
+      getCell(r, c).owner = attackerOwner;
       const el = document.getElementById(`cell-${r}-${c}`);
       if (el) {
         const fx = document.createElement('div');
@@ -2853,26 +2860,34 @@ function triggerMeteor(who) {
         setTimeout(() => fx.remove(), 650);
       }
       renderAll();
-    }, delay);
+    }, i * 80);
   });
 
-  if (enemyHit) {
-    setTimeout(() => { warpIfHit(who, hit); renderAll(); }, hit.length * 80);
+  if (victimHit) {
+    setTimeout(() => { warpIfHit(attackerOwner, hit); renderAll(); }, hit.length * 80);
+  }
+
+  // 攻撃側のみFBに書く（ランダム結果を確定させる）
+  if (isOnline && roomId && attackerOwner === myOwner()) {
+    writeGridCells(hit, attackerOwner);
   }
 }
 
 // BANISH：敵をランダムなマスへ強制転移
-function triggerBanish(who) {
+// 攻撃側がランダム転移先を決定し、FBに書く → 双方のplayersリスナーが適用
+function triggerBanish(attackerOwner) {
   const n = G.n;
-  const enemyPos = who === 1 ? G.cpu : G.player;
-  const fromR = enemyPos.r, fromC = enemyPos.c;
+  const victimOwner = 3 - attackerOwner;
+  const victimP = victimOwner === 1 ? G.p1 : G.p2;
+  const victimRole = victimOwner === 1 ? 'player1' : 'player2';
+  const fromR = victimP.r, fromC = victimP.c;
+
   const all = [];
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
       if (r !== fromR || c !== fromC) all.push({r,c});
   const dest = all[Math.floor(Math.random() * all.length)];
 
-  // 転移元：消えるエフェクト
   const fromEl = document.getElementById(`cell-${fromR}-${fromC}`);
   if (fromEl) {
     const fx = document.createElement('div');
@@ -2884,11 +2899,14 @@ function triggerBanish(who) {
 
   playTone(800, 'sine', 0.3, 0.4);
 
-  // 少し遅らせて転移先に出現
   setTimeout(() => {
-    enemyPos.r = dest.r;
-    enemyPos.c = dest.c;
-    if (who === 2) G.input = '';
+    victimP.r = dest.r; victimP.c = dest.c;
+    if (victimOwner === myOwner()) G.input = ''; // 自分がBanishされた
+
+    // 攻撃側のみFBに書く（ランダム結果を確定。相手はplayersリスナーで位置を受信）
+    if (isOnline && roomId && attackerOwner === myOwner()) {
+      db.ref(`rooms/${roomId}/players/${victimRole}`).update({ r: dest.r, c: dest.c });
+    }
 
     const toEl = document.getElementById(`cell-${dest.r}-${dest.c}`);
     if (toEl) {
@@ -2904,30 +2922,19 @@ function triggerBanish(who) {
 }
 
 // MISSILE：斜め方向のマスを1マスずつ順に塗り替え（演出付き）
-function triggerMissile(who, itemR, itemC) {
+function triggerMissile(attackerOwner, itemR, itemC) {
   const n = G.n;
-
-  // 斜め4方向の角度（🚀はデフォルト上向き、各方向に45度反時計回り調整済み）
   const dirAngles = {
-    '-1,-1': '270deg', // NW
-    '-1,1':    '0deg', // NE
-    '1,-1':  '180deg', // SW
-    '1,1':    '90deg', // SE
+    '-1,-1': '270deg', '-1,1': '0deg', '1,-1': '180deg', '1,1': '90deg',
   };
-
-  // 各方向のマスリストを収集
   const sequences = [];
   [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
     const seq = [];
     let r = itemR + dr, c = itemC + dc;
-    while (r >= 0 && r < n && c >= 0 && c < n) {
-      seq.push({r, c});
-      r += dr; c += dc;
-    }
+    while (r >= 0 && r < n && c >= 0 && c < n) { seq.push({r, c}); r += dr; c += dc; }
     if (seq.length) sequences.push({ seq, angle: dirAngles[`${dr},${dc}`] });
   });
 
-  // 最長アームのステップ数
   const maxSteps = Math.max(...sequences.map(s => s.seq.length));
   const msPerStep = 80;
   const paintedCells = [];
@@ -2937,10 +2944,8 @@ function triggerMissile(who, itemR, itemC) {
       sequences.forEach(({ seq, angle }) => {
         if (step >= seq.length) return;
         const { r, c } = seq[step];
-        getCell(r, c).owner = who;
+        getCell(r, c).owner = attackerOwner;
         paintedCells.push({r, c});
-
-        // ミサイルアイコン演出
         const el = document.getElementById(`cell-${r}-${c}`);
         if (el) {
           const icon = document.createElement('div');
@@ -2952,36 +2957,31 @@ function triggerMissile(who, itemR, itemC) {
         }
         playTone(400 + step * 80, 'sawtooth', 0.06, 0.15);
       });
-
       renderAll();
-
-      // 最終ステップで敵ワープ判定
       if (step === maxSteps - 1) {
-        warpIfHit(who, paintedCells);
+        warpIfHit(attackerOwner, paintedCells);
         renderAll();
       }
     }, step * msPerStep);
   }
+
+  // 攻撃側のみFBに書く
+  if (isOnline && roomId && attackerOwner === myOwner()) {
+    setTimeout(() => writeGridCells(paintedCells, attackerOwner), maxSteps * msPerStep);
+  }
 }
 
 // BEAM：アイテムマスの上下左右を中心から外へ順に塗り替え（演出付き）
-function triggerBeam(who, itemR, itemC) {
+function triggerBeam(attackerOwner, itemR, itemC) {
   const n = G.n;
   const msPerStep = 55;
   const paintedCells = [];
-
-  // 横方向（左右）・縦方向（上下）を中心から外向きに列挙
-  const maxDist = n - 1;
   const steps = [];
-  for (let d = 1; d <= maxDist; d++) {
+  for (let d = 1; d <= n - 1; d++) {
     const batch = [];
-    // 左
     if (itemC - d >= 0) batch.push({ r: itemR, c: itemC - d, dir: 'h' });
-    // 右
     if (itemC + d < n)  batch.push({ r: itemR, c: itemC + d, dir: 'h' });
-    // 上
     if (itemR - d >= 0) batch.push({ r: itemR - d, c: itemC, dir: 'v' });
-    // 下
     if (itemR + d < n)  batch.push({ r: itemR + d, c: itemC, dir: 'v' });
     if (batch.length) steps.push(batch);
   }
@@ -2993,9 +2993,8 @@ function triggerBeam(who, itemR, itemC) {
   steps.forEach((batch, i) => {
     setTimeout(() => {
       batch.forEach(({ r, c, dir }) => {
-        getCell(r, c).owner = who;
+        getCell(r, c).owner = attackerOwner;
         paintedCells.push({r, c});
-
         const el = document.getElementById(`cell-${r}-${c}`);
         if (el) {
           const fx = document.createElement('div');
@@ -3005,30 +3004,32 @@ function triggerBeam(who, itemR, itemC) {
         }
       });
       renderAll();
-
       if (i === steps.length - 1) {
-        warpIfHit(who, paintedCells);
+        warpIfHit(attackerOwner, paintedCells);
         renderAll();
       }
     }, i * msPerStep);
   });
+
+  // 攻撃側のみFBに書く
+  if (isOnline && roomId && attackerOwner === myOwner()) {
+    setTimeout(() => writeGridCells(paintedCells, attackerOwner), steps.length * msPerStep);
+  }
 }
 
-function pickupItem(r, c, who) {
+// ownerNum: 1 or 2 (絶対オーナー番号)
+function pickupItem(r, c, ownerNum) {
   const itemKey = `${r},${c}`;
-  if (G.mapItems[itemKey]) {
-    const type = G.mapItems[itemKey];
-    delete G.mapItems[itemKey];
-    // [変更] アイテム取得時にFirebaseから個別remove()。丸ごとset()をやめた
-    if (isOnline && roomId && G.itemFbKeys[itemKey]) {
-      db.ref(`rooms/${roomId}/items/${G.itemFbKeys[itemKey]}`).remove();
-      delete G.itemFbKeys[itemKey];
-    }
-    applyItem(type, who, r, c);
-    // [変更] 自分がアイテムを使ったことを送信（who===1のみ。cpu/相手は別途受信で処理）
-    if (who === 1) sendItemEvent(type, r, c);
-    playItem();
+  if (!G.mapItems[itemKey]) return;
+  const type = G.mapItems[itemKey];
+  delete G.mapItems[itemKey];
+  if (isOnline && roomId && G.itemFbKeys[itemKey]) {
+    db.ref(`rooms/${roomId}/items/${G.itemFbKeys[itemKey]}`).remove();
+    delete G.itemFbKeys[itemKey];
   }
+  // 取得者が使用者 → applyItemに絶対owner番号を渡す
+  applyItem(type, ownerNum, r, c);
+  playItem();
 }
 
 // ===== ITEM SPAWNING =====
@@ -3039,7 +3040,7 @@ function spawnItem() {
   const all = [];
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
     const key = `${r},${c}`;
-    if (!G.mapItems[key] && !(r===G.player.r&&c===G.player.c) && !(r===G.cpu.r&&c===G.cpu.c)) {
+    if (!G.mapItems[key] && !(r===G.p1.r&&c===G.p1.c) && !(r===G.p2.r&&c===G.p2.c)) {
       all.push(key);
     }
   }
@@ -3072,7 +3073,7 @@ function handleKeydown(e) {
 
   if (e.key in arrowDirMap && (e.key.startsWith('Arrow') || e.shiftKey)) {
     e.preventDefault();
-    if (G.playerFrozen > 0) return;
+    if (isMyFreeze()) return;
     const [dr,dc] = arrowDirMap[e.key];
     playerArrowMove(dr, dc);
     return;
@@ -3086,7 +3087,7 @@ function handleKeydown(e) {
     return;
   }
 
-  if (G.playerFrozen > 0) return;
+  if (isMyFreeze()) return;
 
   // スペースキー：単語確定
   if (e.key === ' ') {
@@ -3188,30 +3189,23 @@ function startTimers() {
 let lastLoopTime = 0;
 function gameLoop(now) {
   if (!G.running) return;
-  const dt = now - lastLoopTime;
   lastLoopTime = now;
 
-  // speed切れ検知（切れた瞬間に入力をリセット）
-  const wasSpeed = G.playerSpeed > 0;
+  // speed切れ検知（切れた瞬間に通常範囲外の入力をリセット）
+  const speedWasOn = mySpeedOn();
+  // speedUntil/freezeUntil は絶対ms値なので自動的に切れる — カウントダウン不要
 
-  if (G.playerSpeed > 0) G.playerSpeed = Math.max(0, G.playerSpeed - dt);
-  if (G.playerFrozen > 0) G.playerFrozen = Math.max(0, G.playerFrozen - dt);
-  if (G.cpuSpeed > 0) G.cpuSpeed = Math.max(0, G.cpuSpeed - dt);
-  if (G.cpuFrozen > 0) G.cpuFrozen = Math.max(0, G.cpuFrozen - dt);
-
-  // speed が切れた瞬間：通常範囲外のマスが対象になっている入力をリセット
-  if (wasSpeed && G.playerSpeed === 0 && G.input) {
+  if (!mySpeedOn() && speedWasOn && G.input) {
     const normalRange = new Set();
-    const r = G.player.r, c = G.player.c;
+    const r = myP().r, c = myP().c;
     const n = G.n;
     [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
       const nr=r+dr, nc=c+dc;
       if (nr>=0&&nr<n&&nc>=0&&nc<n) normalRange.add(`${nr},${nc}`);
     });
-    // 現在地（CPUホーム以外）も対象
-    const cpuHome = {r: G.n-1, c: G.n-1};
-    if (!(G.player.r === cpuHome.r && G.player.c === cpuHome.c)) normalRange.add(`${r},${c}`);
-
+    const oppHomeR = myOwner() === 1 ? n-1 : 0;
+    const oppHomeC = myOwner() === 1 ? n-1 : 0;
+    if (!(r === oppHomeR && c === oppHomeC)) normalRange.add(`${r},${c}`);
     let stillValid = false;
     normalRange.forEach(key => {
       const [nr,nc] = key.split(',').map(Number);
@@ -3228,7 +3222,7 @@ function gameLoop(now) {
 // ===== CPU LOGIC =====
 async function cpuLoop() {
   while (G.running) {
-    if (G.cpuFrozen > 0) {
+    if (isOppFreeze()) {
       await sleep(200);
       continue;
     }
@@ -3250,61 +3244,54 @@ async function cpuLoop() {
 }
 
 function chooseCpuTarget() {
-  if (G.cpuFrozen > 0) return null;
-  const r = G.cpu.r, c = G.cpu.c;
-  const n = G.n;
-  const step = G.cpuSpeed > 0 ? 2 : 1;
-
-  // Get reachable cells for CPU
+  if (isOppFreeze()) return null;
   const reachable = getCpuReachable();
-
   if (!reachable.length) return null;
 
-  // Priority 1: adjacent enemy (player) cells
-  const enemyCells = reachable.filter(({r,c}) => getCell(r,c).owner === 1);
-  if (enemyCells.length) {
-    return pickBest(enemyCells);
-  }
+  const myOw = myOwner(); // CPUの視点: myOwner()=1なら自分=player1, oppOwner()=2がCPU
+  const cpuOw = oppOwner(); // CPUの owner番号
 
-  // Priority 2: neutral cells
+  // Priority 1: 相手（プレイヤー）の陣地
+  const enemyCells = reachable.filter(({r,c}) => getCell(r,c).owner === myOw);
+  if (enemyCells.length) return pickBest(enemyCells);
+
+  // Priority 2: 中立
   const neutralCells = reachable.filter(({r,c}) => getCell(r,c).owner === 0);
-  if (neutralCells.length) {
-    return pickBest(neutralCells);
-  }
+  if (neutralCells.length) return pickBest(neutralCells);
 
-  // Priority 3: item cells
+  // Priority 3: アイテム
   const itemCells = reachable.filter(({r,c}) => G.mapItems[`${r},${c}`]);
-  if (itemCells.length) {
-    return itemCells[0];
-  }
+  if (itemCells.length) return itemCells[0];
 
-  // Priority 4: move toward enemy territory
-  const enemyDir = findDirectionToEnemy(r, c);
+  // Priority 4: 相手陣地の方向へ
+  const pos = oppP();
+  const enemyDir = findDirectionToEnemy(pos.r, pos.c);
   if (enemyDir) return enemyDir;
 
-  // Priority 5: any non-own cell accessible
-  const any = reachable.filter(({r,c}) => getCell(r,c).owner !== 2);
+  // Priority 5: 自分の陣地以外
+  const any = reachable.filter(({r,c}) => getCell(r,c).owner !== cpuOw);
   if (any.length) return any[0];
 
   return null;
 }
 
 function getCpuReachable() {
-  const r = G.cpu.r, c = G.cpu.c;
+  const pos = oppP();
+  const r = pos.r, c = pos.c;
   const n = G.n;
   const result = [];
+  const step = oppSpeedOn() ? 2 : 1;
   [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
-    const nr=r+dr, nc=c+dc;
-    if (nr>=0&&nr<n&&nc>=0&&nc<n) result.push({r:nr,c:nc});
+    for (let s = 1; s <= step; s++) {
+      const nr=r+dr*s, nc=c+dc*s;
+      if (nr>=0&&nr<n&&nc>=0&&nc<n) result.push({r:nr,c:nc});
+    }
   });
-
-  // 現在地マスも入力可能（ただしプレイヤーの初期位置にいるときは除外）
-  const playerHome = { r: 0, c: 0 };
-  const atPlayerHome = G.cpu.r === playerHome.r && G.cpu.c === playerHome.c;
-  if (!atPlayerHome) {
-    result.push({ r, c });
-  }
-
+  // 現在地も対象（ただし相手（プレイヤー）の初期マスにいるときは除外）
+  // プレイヤーの初期位置: myOwner()==1 → 左上(0,0), myOwner()==2 → 右下(n-1,n-1) — 固定
+  const myHomeR = myOwner() === 1 ? 0 : n-1;
+  const myHomeC = myOwner() === 1 ? 0 : n-1;
+  if (!(r === myHomeR && c === myHomeC)) result.push({ r, c });
   return result;
 }
 
@@ -3316,7 +3303,8 @@ function pickBest(cells) {
 }
 
 function findDirectionToEnemy(fromR, fromC) {
-  // BFS toward nearest player cell
+  // BFS: CPUが相手（myOwner）の陣地を探す — 絶対owner番号で判定
+  const targetOwner = myOwner();
   const n = G.n;
   const visited = new Set();
   const queue = [{r:fromR,c:fromC,firstStep:null}];
@@ -3332,7 +3320,7 @@ function findDirectionToEnemy(fromR, fromC) {
       if (visited.has(key)) continue;
       visited.add(key);
       const step = firstStep || {r:nr,c:nc};
-      if (getCell(nr,nc).owner === 1) return step;
+      if (getCell(nr,nc).owner === targetOwner) return step;
       queue.push({r:nr,c:nc,firstStep:step});
     }
   }
@@ -3344,17 +3332,15 @@ async function cpuTypeWord(target) {
   if (!cell) return;
   const word = cell.word;
 
-  const kpm = G.cpuSpeed > 0 ? G.kpm * 1.5 : G.kpm;
+  const kpm = oppSpeedOn() ? G.kpm * 1.5 : G.kpm;
   const msPerChar = 60000 / kpm;
-  const required = word.length; // CPUはspeedでもフル入力（速度だけ上がる）
+  const required = word.length;
 
   G.cpuInput = '';
 
   for (let i = 0; i < required; i++) {
     if (!G.running) return;
-    if (G.cpuFrozen > 0) {
-      while (G.cpuFrozen > 0 && G.running) await sleep(100);
-    }
+    while (isOppFreeze() && G.running) await sleep(100);
     if (!G.running) return;
     G.cpuInput = word.slice(0, i+1);
     renderAll();
@@ -3374,29 +3360,26 @@ async function cpuTypeWord(target) {
 }
 
 function cpuMoveTo(r, c) {
-  const fromR = G.cpu.r, fromC = G.cpu.c;
+  const opp = oppP();
+  const fromR = opp.r, fromC = opp.c;
+  const cpuOw = oppOwner();
 
-  // Track history to prevent oscillation
   G.cpuMoveHistory.push({r:fromR,c:fromC});
   if (G.cpuMoveHistory.length > 4) G.cpuMoveHistory.shift();
 
-  paintPath(fromR, fromC, r, c, 2);
+  const painted = paintPath(fromR, fromC, r, c, cpuOw);
+  opp.r = r; opp.c = c;
 
-  G.cpu.r = r;
-  G.cpu.c = c;
-
-  // Collision with player
-  if (r === G.player.r && c === G.player.c) {
-    G.player.r = 0;
-    G.player.c = 0;
+  // 衝突（offline時）
+  if (!isOnline && r === myP().r && c === myP().c) {
+    const n = G.n;
+    myP().r = myOwner() === 1 ? 0 : n-1;
+    myP().c = myOwner() === 1 ? 0 : n-1;
     G.input = '';
     playWarp();
   }
 
-  // Pick up item
-  const itemKey = `${r},${c}`;
-  pickupItem(r, c, 2);
-
+  pickupItem(r, c, cpuOw);
   renderAll();
 }
 
@@ -3410,7 +3393,8 @@ function endGame() {
   document.removeEventListener('keydown', handleKeydown);
 
   let pScore = 0, cScore = 0;
-  G.cells.forEach(cell => { if(cell.owner===1)pScore++; else if(cell.owner===2)cScore++; });
+  const _mo = myOwner();
+  G.cells.forEach(cell => { if(cell.owner===_mo)pScore++; else if(cell.owner)cScore++; });
 
   const titleEl = document.getElementById('result-title');
   if (pScore > cScore) { titleEl.textContent = 'YOU WIN!'; titleEl.className = 'result-title win'; }
@@ -3568,12 +3552,11 @@ function _tryMatchTransaction() {
 }
 
 // 自分が含まれるroomをFirebase上で検知してplayer2として開始する
-// rooms をquery orderByChild('players/player2').equalTo(myUserId) で監視
+// uids/player2 にuid文字列が入るため orderByChild('uids/player2') でクエリ
 function _listenForMyRoom() {
   if (_lobbyWaitRef) _lobbyWaitRef.off();
 
-  // rooms以下で player2 === myUserId のroomをクエリ
-  _lobbyWaitRef = db.ref('rooms').orderByChild('players/player2').equalTo(myUserId);
+  _lobbyWaitRef = db.ref('rooms').orderByChild('uids/player2').equalTo(myUserId);
   _lobbyWaitRef.on('child_added', snap => {
     const room = snap.val();
     if (!room) return;
@@ -3630,11 +3613,20 @@ function _createMatchRoom(opponentId) {
     };
   }
 
+  // 初期grid: player1が左上、player2が右下 (絶対座標)
+  const initGrid = { '0_0': 1, [`${n-1}_${n-1}`]: 2 };
+  // 初期players状態
+  const initPlayers = {
+    player1: { r: 0,   c: 0,   freezeUntil: 0 },
+    player2: { r: n-1, c: n-1, freezeUntil: 0 },
+  };
+
   db.ref(`rooms/${roomId}`).set({
     status: 'playing',
-    uids: { player1: myUserId, player2: opponentId }, // セキュリティルール用の不変UIDマップ
-    players: { player1: myUserId, player2: opponentId },
-    spawner: 'player1', // items生成責任者（初期はplayer1）
+    uids: { player1: myUserId, player2: opponentId },
+    players: initPlayers,
+    grid: initGrid,
+    spawner: 'player1',
     settings: {
       n: settings.n,
       time: settings.time,
@@ -3645,7 +3637,6 @@ function _createMatchRoom(opponentId) {
     startedAt: firebase.database.ServerValue.TIMESTAMP,
     items: Object.keys(initItems).length > 0 ? initItems : null,
   }).then(() => {
-    // startedAtの実値を読み返す（ServerValue.TIMESTAMPはプレースホルダのため）
     db.ref(`rooms/${roomId}/startedAt`).once('value', tsSnap => {
       const startedAt = tsSnap.val() || 0;
       setLobbyUI(false);
@@ -3658,27 +3649,8 @@ function _createMatchRoom(opponentId) {
 function startOnlineMatch(words, startedAt) {
   isOnline = true;
   startGame(words);
-
-  // player2は自分と相手の位置・陣地を入れ替える
-  // ローカルエンジンは owner=1=自分/owner=2=相手 固定のため
-  if (myRole === 'player2') {
-    const n = G.n;
-    G.player.r = n - 1; G.player.c = n - 1;
-    G.cpu.r = 0;        G.cpu.c = 0;
-    getCell(0, 0).owner     = 2;
-    getCell(n-1, n-1).owner = 1;
-    renderAll();
-  }
-
-  // 両者が同一のサーバー基準時刻で lastTs を初期化
-  // startedAt より古いデータはすべて過去ゲームの残留として弾く
-  const base = startedAt || 0;
-  lastTs.player1     = base;
-  lastTs.player2     = base;
-  lastTs.cap_player1 = base;
-  lastTs.cap_player2 = base;
-  lastTs.eventsFrom  = base;
-
+  // 絶対座標設計: G.p1=player1(左上), G.p2=player2(右下) — 座標反転なし
+  // startGame内で getCell(0,0).owner=1, getCell(n-1,n-1).owner=2 に設定済み
   setupOnlineListeners();
 }
 
@@ -3695,60 +3667,45 @@ function _on(ref, event, fn) {
   _listeners.push({ ref, event, fn });
 }
 
-// ===== 同期リスナー設定 =====
+// ===== 同期リスナー設定（状態同期型）=====
+// captures/events は廃止。players（位置+凍結）とgrid（陣地完全状態）で同期する
 function setupOnlineListeners() {
-  const opponentRole = myRole === 'player1' ? 'player2' : 'player1';
   const n = G.n;
 
-  // --- 相手の位置同期 ---
-  _on(db.ref(`rooms/${roomId}/players/${opponentRole}`), 'value', snap => {
+  // --- players: 両プレイヤーの位置・freezeUntil を一元監視 ---
+  // 自分の位置が外部から変更された場合（Banish/Bomb等）を検出して入力リセット
+  _on(db.ref(`rooms/${roomId}/players/${myRole}`), 'value', snap => {
+    const data = snap.val();
+    if (!data) return;
+    const oldR = myP().r, oldC = myP().c;
+    if (typeof data.r === 'number') myP().r = data.r;
+    if (typeof data.c === 'number') myP().c = data.c;
+    myP().freezeUntil = data.freezeUntil || 0;
+    // 自分が強制移動された（Banish/Bomb被弾） → 入力リセット
+    if (myP().r !== oldR || myP().c !== oldC) G.input = '';
+    if (G.running) renderAll();
+  });
+
+  _on(db.ref(`rooms/${roomId}/players/${oppRole()}`), 'value', snap => {
     const data = snap.val();
     if (!data || !G.running) return;
-    // 過去ゲームのキャッシュと同一ゲーム内の遅延を二重チェック
-    if (data.ts <= lastTs[opponentRole]) return;
-
-    // ⑤ チート対策: 座標範囲バリデーション
-    if (typeof data.r !== 'number' || typeof data.c !== 'number') return;
-    if (data.r < 0 || data.r >= n || data.c < 0 || data.c >= n) return;
-
-    lastTs[opponentRole] = data.ts;
-    G.cpu.r = data.r;
-    G.cpu.c = data.c;
+    if (typeof data.r === 'number') oppP().r = data.r;
+    if (typeof data.c === 'number') oppP().c = data.c;
+    oppP().freezeUntil = data.freezeUntil || 0;
     renderAll();
   });
 
-  // --- 相手の陣地占領を受信 ---
-  _on(db.ref(`rooms/${roomId}/captures`), 'child_added', snap => {
-    const cap = snap.val();
-    if (!cap || !G.running) return;
-    if (cap.player === myRole) return; // 自分のは適用済み
-    if (cap.ts <= lastTs[`cap_${cap.player}`]) return; // 遅延/重複
-
-    // ⑤ チート対策: cellsバリデーション（配列か、座標が範囲内か）
-    if (!Array.isArray(cap.cells)) return;
-    const valid = cap.cells.every(({r, c}) =>
-      typeof r === 'number' && typeof c === 'number' &&
-      r >= 0 && r < n && c >= 0 && c < n
-    );
-    if (!valid) return;
-
-    lastTs[`cap_${cap.player}`] = cap.ts;
-    cap.cells.forEach(({r, c}) => { getCell(r, c).owner = 2; });
-    renderAll();
+  // --- grid: 全陣地の完全状態を受信 ---
+  // ローカル書き込みのフィードバックも含む（冪等）
+  _on(db.ref(`rooms/${roomId}/grid`), 'value', snap => {
+    const gridData = snap.val() || {};
+    G.cells.forEach(cell => {
+      cell.owner = gridData[`${cell.r}_${cell.c}`] || 0;
+    });
+    if (G.running) renderAll();
   });
 
-  // --- アイテム使用イベントを受信 ---
-  _on(db.ref(`rooms/${roomId}/events`), 'child_added', snap => {
-    const ev = snap.val();
-    if (!ev || !G.running) return;
-    if (ev.player === myRole) return;
-    if (ev.ts < lastTs.eventsFrom) return; // 過去ゲームの残留イベント
-
-    applyItem(ev.itemType, 2, ev.itemR, ev.itemC);
-    renderAll();
-  });
-
-  // --- アイテム出現・消滅の同期 ---
+  // --- items: マップアイテムの出現・消滅 ---
   _on(db.ref(`rooms/${roomId}/items`), 'child_added', snap => {
     const item = snap.val();
     if (!item) return;
@@ -3769,23 +3726,16 @@ function setupOnlineListeners() {
     if (G.running) renderAll();
   });
 
-  // --- 相手の切断検知 ---
-  // rooms/{roomId}/players/{opponentRole} が null になったら相手が切断
-  // ただし位置同期のリスナーと共用するため、別途 spawner 監視も行う
+  // --- spawner: items生成責任の切り替え（切断時）---
   _on(db.ref(`rooms/${roomId}/spawner`), 'value', snap => {
     const spawner = snap.val();
     if (spawner) G.itemSpawner = spawner;
   });
 
-  // 相手の接続状態を監視（rooms/{roomId}/players/{opponentRole} が消えたら切断）
-  // rooms自体のvalue監視でstatusが消えたら終了
+  // --- room削除検知: 相手切断 → 勝利 ---
   _on(db.ref(`rooms/${roomId}`), 'value', snap => {
     if (!G.running) return;
-    const room = snap.val();
-    // roomが削除されたか、相手プレイヤーデータが完全に消えた場合 → 相手切断 → 勝利
-    if (room === null) {
-      _handleOpponentDisconnect();
-    }
+    if (snap.val() === null) _handleOpponentDisconnect();
   });
 
   // 自分のプレイヤーデータに onDisconnect を設定（ゴーストプレイヤー対策）
@@ -3807,7 +3757,8 @@ function _handleOpponentDisconnect() {
 
   // 相手切断 → 自分の勝利として結果を表示
   let pScore = 0, cScore = 0;
-  G.cells.forEach(cell => { if(cell.owner===1)pScore++; else if(cell.owner===2)cScore++; });
+  const _mo = myOwner();
+  G.cells.forEach(cell => { if(cell.owner===_mo)pScore++; else if(cell.owner)cScore++; });
   const titleEl = document.getElementById('result-title');
   titleEl.textContent = 'OPPONENT DISCONNECTED';
   titleEl.className = 'result-title win';
