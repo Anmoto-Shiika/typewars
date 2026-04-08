@@ -822,6 +822,247 @@ body::before {
 @media (max-width: 500px) {
   :root { --cell-size: 58px; }
 }
+
+/* ===== LOBBY SCREEN ===== */
+#lobby-screen {
+  background: radial-gradient(ellipse at 30% 40%, #1a1a3a 0%, var(--bg) 70%);
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  flex-direction: column;
+}
+
+.lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+  flex-shrink: 0;
+}
+.lobby-header-title {
+  font-size: 20px;
+  letter-spacing: 6px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.lobby-user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.lobby-hn { color: var(--accent); font-size: 14px; letter-spacing: 1px; }
+
+.lobby-body {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 54px);
+}
+
+.lobby-col {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--bg3);
+  overflow: hidden;
+  min-height: 0;
+}
+.lobby-col:last-child { border-right: none; }
+
+.lobby-col-header {
+  padding: 10px 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.lobby-col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  min-height: 0;
+}
+
+/* Online player list */
+.lobby-player-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.lobby-player-item.me { color: var(--text); }
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.online  { background: var(--accent); }
+.status-dot.inroom  { background: var(--item-color); }
+.status-dot.playing { background: var(--cpu-color); }
+
+.status-label { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+/* Room list */
+.room-card {
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.room-card:hover { border-color: var(--player-color); box-shadow: 0 0 10px var(--player-glow); }
+.room-card.full { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+.room-card-name { font-size: 13px; color: var(--text); letter-spacing: 1px; }
+.room-card-info { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+/* Create room area */
+.lobby-create-area {
+  padding: 8px;
+  border-top: 1px solid var(--bg3);
+  flex-shrink: 0;
+}
+
+/* Chat */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-height: 0;
+}
+.chat-msg { font-size: 12px; line-height: 1.45; word-break: break-all; }
+.chat-msg-hn { color: var(--player-color); font-weight: bold; }
+.chat-msg-hn.opp { color: var(--cpu-color); }
+.chat-msg-hn.system { color: var(--text-dim); font-style: italic; }
+.chat-msg-text { color: var(--text); }
+
+.chat-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  border-top: 1px solid var(--bg3);
+  flex-shrink: 0;
+}
+.chat-input {
+  flex: 1;
+  background: var(--bg3);
+  border: 1px solid #333344;
+  color: var(--text);
+  font-family: var(--font-main);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  outline: none;
+}
+.chat-input:focus { border-color: var(--player-color); }
+.chat-send-btn {
+  background: var(--player-color);
+  border: none;
+  color: #fff;
+  font-family: var(--font-main);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.chat-send-btn:hover { opacity: 0.85; }
+
+/* ===== ROOM SCREEN ===== */
+#room-screen {
+  background: radial-gradient(ellipse at 70% 40%, #1a1a3a 0%, var(--bg) 70%);
+  padding: 0;
+  align-items: stretch;
+  justify-content: flex-start;
+  flex-direction: column;
+}
+.room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--bg3);
+  flex-shrink: 0;
+}
+.room-header-name {
+  font-size: 17px;
+  letter-spacing: 3px;
+  color: var(--text);
+  font-weight: 700;
+}
+.room-body {
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - 108px);
+}
+.room-settings-panel {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.room-settings-panel .opt-btn[disabled] { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+/* Room player items */
+.room-player-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg2);
+  border: 1px solid var(--bg3);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.room-player-hn { flex: 1; font-size: 13px; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-host-badge {
+  font-size: 9px; letter-spacing: 1px; color: var(--item-color);
+  background: rgba(255,215,0,0.1); border: 1px solid var(--item-color);
+  padding: 1px 5px; border-radius: 3px; text-transform: uppercase; flex-shrink: 0;
+}
+.room-ready-badge {
+  font-size: 9px; letter-spacing: 1px; padding: 1px 5px; border-radius: 3px;
+  text-transform: uppercase; flex-shrink: 0;
+}
+.room-ready-badge.ready   { color: var(--accent); background: rgba(160,255,128,0.1); border: 1px solid var(--accent); }
+.room-ready-badge.waiting { color: var(--text-dim); background: var(--bg3); border: 1px solid #333344; }
+
+/* Room footer */
+.room-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--bg2);
+  border-top: 1px solid var(--bg3);
+  flex-shrink: 0;
+}
 </style>
 </head>
 <body>
@@ -941,15 +1182,6 @@ body::before {
       style="background:linear-gradient(135deg,#a0ff80,#40cc40); color:#000;">
       VS PLAYER
     </button>
-    <!-- [追加] ロビー待機中のUI。enterLobby()中のみ表示 -->
-    <button class="start-btn" id="lobby-cancel-btn"
-      style="display:none; background:linear-gradient(135deg,#ff8080,#cc4040); color:#fff;">
-      CANCEL
-    </button>
-  </div>
-  <!-- [追加] マッチング待機ステータス表示 -->
-  <div id="lobby-status" style="display:none; margin-top:8px; font-size:13px; color:var(--accent); letter-spacing:1px;">
-    ⏳ Searching for opponent...
   </div>
 
   <div class="legend">
@@ -1040,6 +1272,84 @@ body::before {
   </div>
 </div>
 
+<!-- ===== LOBBY SCREEN ===== -->
+<div id="lobby-screen" class="screen">
+  <div class="lobby-header">
+    <div class="lobby-header-title">LOBBY</div>
+    <div class="lobby-user-info">
+      <span>You:</span>
+      <span class="lobby-hn" id="lobby-my-hn">Guest</span>
+    </div>
+    <button class="retry-btn" id="lobby-leave-btn" style="font-size:11px;padding:5px 14px;">LEAVE</button>
+  </div>
+  <div class="lobby-body">
+    <!-- Left: Online Players -->
+    <div class="lobby-col">
+      <div class="lobby-col-header">Online Players</div>
+      <div class="lobby-col-body" id="lobby-player-list"></div>
+    </div>
+    <!-- Center: Rooms -->
+    <div class="lobby-col">
+      <div class="lobby-col-header">Rooms</div>
+      <div class="lobby-col-body" id="lobby-room-list"></div>
+      <div class="lobby-create-area">
+        <button class="start-btn" id="lobby-create-btn"
+          style="width:100%;padding:9px;font-size:12px;letter-spacing:3px;">
+          + CREATE ROOM
+        </button>
+      </div>
+    </div>
+    <!-- Right: Global Chat -->
+    <div class="lobby-col" style="border-right:none;">
+      <div class="lobby-col-header">Global Chat</div>
+      <div class="chat-messages" id="lobby-chat-messages"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="lobby-chat-input" type="text" maxlength="100" placeholder="Message...">
+        <button class="chat-send-btn" id="lobby-chat-send">SEND</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== ROOM SCREEN ===== -->
+<div id="room-screen" class="screen">
+  <div class="room-header">
+    <div class="room-header-name" id="room-header-name">Room</div>
+    <div style="font-size:11px;color:var(--text-dim);letter-spacing:1px;" id="room-status-text">Waiting...</div>
+  </div>
+  <div class="room-body">
+    <!-- Left: Room Players -->
+    <div class="lobby-col">
+      <div class="lobby-col-header">Players</div>
+      <div class="lobby-col-body" id="room-player-list"></div>
+    </div>
+    <!-- Center: Settings -->
+    <div class="lobby-col">
+      <div class="lobby-col-header">Settings</div>
+      <div class="room-settings-panel" id="room-settings-panel"></div>
+    </div>
+    <!-- Right: Room Chat -->
+    <div class="lobby-col" style="border-right:none;">
+      <div class="lobby-col-header">Room Chat</div>
+      <div class="chat-messages" id="room-chat-messages"></div>
+      <div class="chat-input-row">
+        <input class="chat-input" id="room-chat-input" type="text" maxlength="100" placeholder="Message...">
+        <button class="chat-send-btn" id="room-chat-send">SEND</button>
+      </div>
+    </div>
+  </div>
+  <div class="room-footer">
+    <button class="start-btn" id="room-ready-btn"
+      style="font-size:12px;letter-spacing:4px;padding:9px 28px;">READY</button>
+    <button class="start-btn" id="room-start-btn"
+      style="display:none;font-size:12px;letter-spacing:4px;padding:9px 28px;background:linear-gradient(135deg,#a0ff80,#40cc40);color:#000;">
+      START GAME
+    </button>
+    <button class="retry-btn" id="room-leave-btn"
+      style="font-size:11px;padding:7px 18px;">LEAVE ROOM</button>
+  </div>
+</div>
+
 <!-- ===== END SCREEN ===== -->
 <div id="end-screen" class="screen">
   <div class="result-title" id="result-title">DRAW</div>
@@ -1101,8 +1411,10 @@ auth.onAuthStateChanged(user => {
 
 // ブラウザを閉じたときのクリーンアップ（onDisconnectのバックアップ）
 window.addEventListener('beforeunload', () => {
-  if (myUserId) db.ref(`lobby/waiting/${myUserId}`).remove();
-  if (roomId)   db.ref(`rooms/${roomId}`).remove();
+  if (myUserId) db.ref(`lobby/users/${myUserId}`).remove();
+  if (currentRoomId && _isHost) db.ref(`rooms/${currentRoomId}`).remove();
+  else if (currentRoomId && myUserId) db.ref(`rooms/${currentRoomId}/members/${myUserId}`).remove();
+  if (roomId && isOnline)   db.ref(`rooms/${roomId}`).remove();
 });
 
 let myRole = null;   // 'player1' or 'player2'
@@ -2090,8 +2402,9 @@ function initStartScreen() {
                            : id === 'init-items-opts' ? 'initItems'
                            : id === 'uisize-opts'     ? 'wordFontSize'
                            : 'theme';
-          const intKeys = ['uisize-opts', 'init-items-opts'];
-          settings[key] = intKeys.includes(id) ? parseInt(btn.dataset.val) : btn.dataset.val;
+          // すべての数値設定は parseInt で保存（文字列のままだとFirebaseルールの isNumber() に失敗する）
+          const strKeys = ['lang-opts', 'theme-opts'];
+          settings[key] = strKeys.includes(id) ? btn.dataset.val : parseInt(btn.dataset.val);
       });
     });
   });
@@ -2111,7 +2424,6 @@ function initStartScreen() {
 
   document.getElementById('start-btn').addEventListener('click', showCharSelect);
   document.getElementById('online-btn').addEventListener('click', enterLobby);
-  document.getElementById('lobby-cancel-btn').addEventListener('click', leaveLobby);
   document.getElementById('retry-btn').addEventListener('click', () => {
     if (G.endScreenTimer) { clearTimeout(G.endScreenTimer); G.endScreenTimer = null; }
     showScreen('start-screen');
@@ -2694,10 +3006,13 @@ function playerMoveTo(r, c) {
   myP().r = r;
   myP().c = c;
 
-  // 衝突：相手をホームへワープ（offline時のみ発生、online時はBanish等で処理）
-  if (!isOnline && r === oppP().r && c === oppP().c) {
+  // 衝突：相手プレイヤーのマスに入ったら相手を初期位置へワープ
+  if (r === oppP().r && c === oppP().c) {
     const n = G.n;
-    oppP().r = n - 1; oppP().c = n - 1;
+    const homeR = oppOwner() === 1 ? 0 : n - 1;
+    const homeC = oppOwner() === 1 ? 0 : n - 1;
+    oppP().r = homeR; oppP().c = homeC;
+    if (isOnline && roomId) writeOppPos(homeR, homeC);
     playWarp();
   }
 
@@ -3035,8 +3350,12 @@ function pickupItem(r, c, ownerNum) {
 // ===== ITEM SPAWNING =====
 function spawnItem() {
   if (Object.keys(G.mapItems).length >= MAX_ITEMS) return;
+
+  // オンライン非spawner：何もしない。アイテムはchild_addedで受信する
+  // G.mapItemsをローカルに設定すると、spawnerと異なるアイテムが表示されてズレる
+  if (isOnline && myRole !== G.itemSpawner) return;
+
   const n = G.n;
-  // Random position not occupied by player, cpu, or existing item
   const all = [];
   for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
     const key = `${r},${c}`;
@@ -3047,17 +3366,15 @@ function spawnItem() {
   if (!all.length) return;
   const key = all[Math.floor(Math.random()*all.length)];
   const type = ITEM_TYPES[Math.floor(Math.random()*ITEM_TYPES.length)];
-  G.mapItems[key] = type;
 
-  // [変更] spawnerロールを持つプレイヤーのみFirebaseにpush
-  // G.itemSpawner: 'player1'|'player2' — room作成時にセットされ、切断時に切り替わる
-  if (isOnline && roomId && myRole === G.itemSpawner) {
+  if (isOnline && roomId) {
+    // オンラインspawner：FBにpushするだけ。G.mapItemsはchild_addedで両者に同期される
     const [ir, ic] = key.split(',').map(Number);
-    const fbRef = db.ref(`rooms/${roomId}/items`).push({
-      r: ir, c: ic, type,
-      ts: firebase.database.ServerValue.TIMESTAMP,
-    });
+    const fbRef = db.ref(`rooms/${roomId}/items`).push({ r: ir, c: ic, type });
     G.itemFbKeys[key] = fbRef.key;
+  } else {
+    // オフライン：ローカルに直接設定
+    G.mapItems[key] = type;
   }
 }
 
@@ -3447,157 +3764,206 @@ const lastTs = {};
 // リスナー管理: { ref, event } の配列。detachOnlineListeners()で一括off()
 const _listeners = [];
 
-// ロビー待機用リスナー参照
-let _lobbyWaitRef = null;
+// ===== ロビーシステム状態 =====
+let myHN = null;           // ハンドルネーム (例: "Guest1234")
+let currentRoomId = null;  // ロビーで参加中のルームID (ゲーム開始前)
+let _isHost = false;       // 自分がルームのホストか
+let _myReady = false;      // 自分のready状態
+let _roomSettings = {};    // ルーム設定のローカルコピー（ホストが書き換え）
+let _lastChatMs = 0;       // チャットスパム防止: 最終送信時刻
+let _lobbyRefs = [];       // ロビー画面用リスナー参照
+let _roomRefs  = [];       // ルーム画面用リスナー参照
 
-// マッチング中フラグ（transaction二重実行防止）
-let _matchingInProgress = false;
-
-// ===== ロビー UI =====
-function setLobbyUI(searching) {
-  const onlineBtn = document.getElementById('online-btn');
-  const cancelBtn = document.getElementById('lobby-cancel-btn');
-  const statusEl  = document.getElementById('lobby-status');
-  if (searching) {
-    if (onlineBtn) { onlineBtn.disabled = true;  onlineBtn.style.opacity = '0.5'; }
-    if (cancelBtn) { cancelBtn.style.display = 'inline-block'; }
-    if (statusEl)  { statusEl.style.display  = 'block'; }
-  } else {
-    if (onlineBtn) { onlineBtn.disabled = false; onlineBtn.style.opacity = '1'; }
-    if (cancelBtn) { cancelBtn.style.display = 'none'; }
-    if (statusEl)  { statusEl.style.display  = 'none'; }
-  }
+// ===== HN生成 =====
+function generateHN() {
+  return 'Guest' + String(Math.floor(1000 + Math.random() * 9000));
 }
 
-// ===== ロビー入退場 =====
-
-// VS PLAYERボタン押下時
+// ===== ロビー入場 =====
 function enterLobby() {
   if (!myUserId) { alert('認証中です。少し待ってください。'); return; }
-  setLobbyUI(true);
+  myHN = generateHN();
 
-  // lobby/waiting 全体に対してtransactionで「登録＋相手確認」を原子的に実行
-  // これにより2人が同時にplayer1になることを防ぐ
-  _tryMatchTransaction();
+  const userRef = db.ref(`lobby/users/${myUserId}`);
+  userRef.set({ hn: myHN, status: 'online', roomId: null });
+  userRef.onDisconnect().remove();
+
+  // 入室アナウンス
+  db.ref('chat').push({
+    uid: 'system', hn: 'System',
+    text: `${myHN}さんが入室しました`,
+    ts: firebase.database.ServerValue.TIMESTAMP,
+  });
+
+  document.getElementById('lobby-my-hn').textContent = myHN;
+  showScreen('lobby-screen');
+  _attachLobbyListeners();
 }
 
-// CANCEL押下 or エラー時
+// ===== ロビー退場 =====
 function leaveLobby() {
-  _cleanupLobby();
-  setLobbyUI(false);
+  _detachLobbyListeners();
+  if (myUserId) {
+    db.ref(`lobby/users/${myUserId}`).onDisconnect().cancel();
+    db.ref(`lobby/users/${myUserId}`).remove();
+  }
+  showScreen('start-screen');
 }
 
-// ロビー関連リソースをすべてクリーンアップ
-function _cleanupLobby() {
-  if (_lobbyWaitRef) { _lobbyWaitRef.off(); _lobbyWaitRef = null; }
-  _matchingInProgress = false;
-  if (myUserId) {
-    db.ref(`lobby/waiting/${myUserId}`).onDisconnect().cancel();
-    db.ref(`lobby/waiting/${myUserId}`).remove();
+// ===== ルーム作成 =====
+function createRoom() {
+  if (!myUserId || !myHN) return;
+  const newRoomId = 'R' + Math.random().toString(36).slice(2, 8).toUpperCase();
+  const roomName = `${myHN}のルーム`;
+
+  _roomSettings = {
+    n: settings.n,
+    time: settings.time,
+    wordLen: settings.wordLen,
+    itemInterval: settings.itemInterval,
+  };
+
+  db.ref(`rooms/${newRoomId}`).set({
+    name: roomName,
+    hostId: myUserId,
+    status: 'waiting',
+    settings: _roomSettings,
+    members: { [myUserId]: { hn: myHN, ready: false } },
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+  }).then(() => {
+    currentRoomId = newRoomId;
+    _isHost = true;
+    _myReady = false;
+
+    db.ref(`lobby/users/${myUserId}`).update({ status: 'inroom', roomId: newRoomId });
+    // onDisconnect: ホストが切断したらルーム全体を削除
+    db.ref(`rooms/${newRoomId}`).onDisconnect().remove();
+    db.ref(`lobby/users/${myUserId}`).onDisconnect().remove();
+
+    _detachLobbyListeners();
+    _attachRoomListeners(newRoomId);
+    showScreen('room-screen');
+  });
+}
+
+// ===== ルーム参加 =====
+function joinRoom(targetRoomId) {
+  if (!myUserId || !myHN) return;
+  db.ref(`rooms/${targetRoomId}/members/${myUserId}`).set({ hn: myHN, ready: false }).then(() => {
+    currentRoomId = targetRoomId;
+    _isHost = false;
+    _myReady = false;
+
+    db.ref(`lobby/users/${myUserId}`).update({ status: 'inroom', roomId: targetRoomId });
+    db.ref(`rooms/${targetRoomId}/members/${myUserId}`).onDisconnect().remove();
+    db.ref(`lobby/users/${myUserId}`).onDisconnect().remove();
+
+    _detachLobbyListeners();
+    _attachRoomListeners(targetRoomId);
+    showScreen('room-screen');
+  });
+}
+
+// ===== ルーム退出 =====
+function leaveRoom() {
+  if (!currentRoomId || !myUserId) return;
+  const rid = currentRoomId;
+
+  db.ref(`rooms/${rid}`).onDisconnect().cancel();
+  db.ref(`rooms/${rid}/members/${myUserId}`).onDisconnect().cancel();
+  db.ref(`lobby/users/${myUserId}`).onDisconnect().cancel();
+
+  _detachRoomListeners();
+
+  if (_isHost) {
+    db.ref(`rooms/${rid}`).remove();
+  } else {
+    db.ref(`rooms/${rid}/members/${myUserId}`).remove();
+  }
+
+  db.ref(`lobby/users/${myUserId}`).set({ hn: myHN, status: 'online', roomId: null });
+  db.ref(`lobby/users/${myUserId}`).onDisconnect().remove();
+
+  currentRoomId = null;
+  _isHost = false;
+  _myReady = false;
+
+  showScreen('lobby-screen');
+  _attachLobbyListeners();
+}
+
+// ===== チャット送信 =====
+function sendLobbyChat() {
+  const input = document.getElementById('lobby-chat-input');
+  const text = (input.value || '').trim();
+  if (!text || !myUserId || text.length > 100) return;
+  const now = Date.now();
+  if (now - _lastChatMs < 1000) return; // スパム防止: 1秒インターバル
+  _lastChatMs = now;
+  db.ref('chat').push({ uid: myUserId, hn: myHN, text, ts: firebase.database.ServerValue.TIMESTAMP });
+  input.value = '';
+}
+
+function sendRoomChat() {
+  if (!currentRoomId || !myUserId) return;
+  const input = document.getElementById('room-chat-input');
+  const text = (input.value || '').trim();
+  if (!text || text.length > 100) return;
+  const now = Date.now();
+  if (now - _lastChatMs < 1000) return;
+  _lastChatMs = now;
+  db.ref(`rooms/${currentRoomId}/chat`).push({ uid: myUserId, hn: myHN, text, ts: firebase.database.ServerValue.TIMESTAMP });
+  input.value = '';
+}
+
+// ===== Ready トグル =====
+function toggleReady() {
+  if (!currentRoomId || !myUserId) return;
+  _myReady = !_myReady;
+  db.ref(`rooms/${currentRoomId}/members/${myUserId}`).update({ ready: _myReady });
+  const btn = document.getElementById('room-ready-btn');
+  if (btn) {
+    btn.textContent = _myReady ? 'UNREADY' : 'READY';
+    btn.style.background = _myReady
+      ? 'linear-gradient(135deg,#a0ff80,#40cc40)'
+      : 'linear-gradient(135deg, var(--player-color), #2260cc)';
+    btn.style.color = _myReady ? '#000' : '#fff';
   }
 }
 
-// ===== マッチングロジック =====
-// lobby/waiting 全体を1回のtransactionで操作する
-// 自分を登録しながら相手を同時に取得 → 2人同時player1を防ぐ
-function _tryMatchTransaction() {
-  if (_matchingInProgress) return;
-  _matchingInProgress = true;
-
-  let _resolvedOpponent = null; // transaction内で確定した相手UID（クロージャで管理、Firebaseには書かない）
-
-  db.ref('lobby/waiting').transaction(waiting => {
-    _resolvedOpponent = null; // リトライ時にリセット
-    if (waiting === null) waiting = {};
-
-    const others = Object.keys(waiting).filter(uid => uid !== myUserId);
-
-    if (others.length === 0) {
-      // 相手なし → 自分だけ登録して待機
-      waiting[myUserId] = true;
-      return waiting;
-    }
-
-    // 相手がいる → ランダムで1人選んでペア確定
-    // 両者ともwaitingから削除（ルームへ移行）
-    const opponentId = others[Math.floor(Math.random() * others.length)];
-    delete waiting[opponentId];
-    delete waiting[myUserId];
-    _resolvedOpponent = opponentId; // クロージャに保存（__matched__ノードは使わない）
-    return waiting;
-  }, (error, committed, snap) => {
-    _matchingInProgress = false;
-
-    if (error) {
-      console.error('Lobby transaction error:', error);
-      leaveLobby();
-      return;
-    }
-    if (!committed) return; // abort → 再試行不要
-
-    if (_resolvedOpponent !== null) {
-      // 自分がマッチを成立させた → player1としてroom作成
-      _createMatchRoom(_resolvedOpponent);
-
-    } else if ((snap.val() || {})[myUserId] === true) {
-      // 相手がまだいない → 待機。onDisconnectを設定してroom監視開始
-      db.ref(`lobby/waiting/${myUserId}`).onDisconnect().remove();
-      _listenForMyRoom();
-
-    } else {
-      // 相手のtransactionで自分が削除された（opponent側として選ばれた）→ room監視開始
-      _listenForMyRoom();
-    }
+// ===== ゲーム開始（ホスト） =====
+function hostStartGame() {
+  if (!currentRoomId || !_isHost) return;
+  db.ref(`rooms/${currentRoomId}/members`).once('value', snap => {
+    const members = snap.val() || {};
+    const uids = Object.keys(members);
+    if (uids.length < 2) { alert('プレイヤーが2人必要です'); return; }
+    const allReady = uids.every(uid => uid === myUserId || members[uid].ready);
+    if (!allReady) { alert('全員がREADYになるまで開始できません'); return; }
+    const opponentUid = uids.find(uid => uid !== myUserId);
+    _startRoomGame(opponentUid);
   });
 }
 
-// 自分が含まれるroomをFirebase上で検知してplayer2として開始する
-// uids/player2 にuid文字列が入るため orderByChild('uids/player2') でクエリ
-function _listenForMyRoom() {
-  if (_lobbyWaitRef) _lobbyWaitRef.off();
+// ===== ルームゲーム開始処理（ホスト側） =====
+function _startRoomGame(opponentUid) {
+  // ルーム設定を最新値で確定
+  const s = _roomSettings;
+  if (s.n)            settings.n            = Number(s.n);
+  if (s.time)         settings.time         = Number(s.time);
+  if (s.wordLen)      settings.wordLen      = Number(s.wordLen);
+  if (s.itemInterval) settings.itemInterval = Number(s.itemInterval);
 
-  _lobbyWaitRef = db.ref('rooms').orderByChild('uids/player2').equalTo(myUserId);
-  _lobbyWaitRef.on('child_added', snap => {
-    const room = snap.val();
-    if (!room) return;
-    _lobbyWaitRef.off();
-    _lobbyWaitRef = null;
-
-    // room発見 → player2として参加
-    roomId = snap.key;
-    myRole = 'player2';
-
-    db.ref(`lobby/waiting/${myUserId}`).onDisconnect().cancel();
-    db.ref(`lobby/waiting/${myUserId}`).remove();
-
-    const s = room.settings || {};
-    if (s.n)            settings.n            = Number(s.n);
-    if (s.time)         settings.time         = Number(s.time);
-    if (s.wordLen)      settings.wordLen      = Number(s.wordLen);
-    if (s.itemInterval) settings.itemInterval = Number(s.itemInterval);
-
-    const startedAt = room.startedAt || 0;
-    setLobbyUI(false);
-    startOnlineMatch(room.words, startedAt);
-  });
-}
-
-// ===== ルーム作成（player1） =====
-function _createMatchRoom(opponentId) {
   const words = selectWords(settings.n, settings.wordLen);
-  // ランダムなルームIDを生成
-  roomId = 'R' + Math.random().toString(36).slice(2, 8).toUpperCase();
-  myRole = 'player1';
-
-  // 初期アイテムをroom作成と同時に書き込む（両クライアントがchild_addedで受信）
-  const initItems = {};
   const n = settings.n;
+
+  // 初期アイテム生成
+  const initItems = {};
   const forbidden = new Set(['0,0', `${n-1},${n-1}`]);
   const allCells = [];
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
       if (!forbidden.has(`${r},${c}`)) allCells.push(`${r},${c}`);
-  // shuffle
   for (let i = allCells.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [allCells[i], allCells[j]] = [allCells[j], allCells[i]];
@@ -3605,7 +3971,7 @@ function _createMatchRoom(opponentId) {
   const count = Math.min(settings.initItems, allCells.length);
   for (let i = 0; i < count; i++) {
     const [ir, ic] = allCells[i].split(',').map(Number);
-    const pushKey = db.ref().push().key; // クライアント側でkeyを生成
+    const pushKey = db.ref().push().key;
     initItems[pushKey] = {
       r: ir, c: ic,
       type: ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)],
@@ -3613,67 +3979,57 @@ function _createMatchRoom(opponentId) {
     };
   }
 
-  // 初期grid: player1が左上、player2が右下 (絶対座標)
   const initGrid = { '0_0': 1, [`${n-1}_${n-1}`]: 2 };
-  // 初期players状態
   const initPlayers = {
     player1: { r: 0,   c: 0,   freezeUntil: 0 },
     player2: { r: n-1, c: n-1, freezeUntil: 0 },
   };
 
-  db.ref(`rooms/${roomId}`).set({
+  // ゲームデータをルームに書き込む（statusをplayingにすることでplayer2が検知）
+  const gameData = {
     status: 'playing',
-    uids: { player1: myUserId, player2: opponentId },
+    uids: { player1: myUserId, player2: opponentUid },
     players: initPlayers,
     grid: initGrid,
     spawner: 'player1',
-    settings: {
-      n: settings.n,
-      time: settings.time,
-      wordLen: settings.wordLen,
-      itemInterval: settings.itemInterval,
-    },
     words,
     startedAt: firebase.database.ServerValue.TIMESTAMP,
-    items: Object.keys(initItems).length > 0 ? initItems : null,
-  }).then(() => {
-    db.ref(`rooms/${roomId}/startedAt`).once('value', tsSnap => {
+  };
+  if (Object.keys(initItems).length > 0) gameData.items = initItems;
+
+  db.ref(`rooms/${currentRoomId}`).update(gameData).then(() => {
+    db.ref(`rooms/${currentRoomId}/startedAt`).once('value', tsSnap => {
       const startedAt = tsSnap.val() || 0;
-      setLobbyUI(false);
+      roomId = currentRoomId;
+      myRole = 'player1';
+      _detachRoomListeners();
       startOnlineMatch(words, startedAt);
     });
   });
 }
 
-// ===== ゲーム開始（オンライン） =====
+// ===== ゲーム開始（オンライン共通） =====
 function startOnlineMatch(words, startedAt) {
   isOnline = true;
   startGame(words);
-  // 絶対座標設計: G.p1=player1(左上), G.p2=player2(右下) — 座標反転なし
-  // startGame内で getCell(0,0).owner=1, getCell(n-1,n-1).owner=2 に設定済み
   setupOnlineListeners();
 }
 
-// ===== リスナー一括解除 =====
+// ===== ゲームリスナー一括解除 =====
 function detachOnlineListeners() {
-  // _listeners配列に登録された全リスナーをoff()
   _listeners.forEach(({ ref, event, fn }) => ref.off(event, fn));
   _listeners.length = 0;
 }
 
-// リスナーを登録しつつ_listenersに記録するヘルパー
+// リスナー登録ヘルパー
 function _on(ref, event, fn) {
   ref.on(event, fn);
   _listeners.push({ ref, event, fn });
 }
 
-// ===== 同期リスナー設定（状態同期型）=====
-// captures/events は廃止。players（位置+凍結）とgrid（陣地完全状態）で同期する
+// ===== ゲーム同期リスナー（状態同期型）=====
 function setupOnlineListeners() {
-  const n = G.n;
-
-  // --- players: 両プレイヤーの位置・freezeUntil を一元監視 ---
-  // 自分の位置が外部から変更された場合（Banish/Bomb等）を検出して入力リセット
+  // --- players: 位置・freezeUntil 同期 ---
   _on(db.ref(`rooms/${roomId}/players/${myRole}`), 'value', snap => {
     const data = snap.val();
     if (!data) return;
@@ -3681,7 +4037,6 @@ function setupOnlineListeners() {
     if (typeof data.r === 'number') myP().r = data.r;
     if (typeof data.c === 'number') myP().c = data.c;
     myP().freezeUntil = data.freezeUntil || 0;
-    // 自分が強制移動された（Banish/Bomb被弾） → 入力リセット
     if (myP().r !== oldR || myP().c !== oldC) G.input = '';
     if (G.running) renderAll();
   });
@@ -3695,8 +4050,7 @@ function setupOnlineListeners() {
     renderAll();
   });
 
-  // --- grid: 全陣地の完全状態を受信 ---
-  // ローカル書き込みのフィードバックも含む（冪等）
+  // --- grid: 陣地完全状態 ---
   _on(db.ref(`rooms/${roomId}/grid`), 'value', snap => {
     const gridData = snap.val() || {};
     G.cells.forEach(cell => {
@@ -3705,7 +4059,7 @@ function setupOnlineListeners() {
     if (G.running) renderAll();
   });
 
-  // --- items: マップアイテムの出現・消滅 ---
+  // --- items ---
   _on(db.ref(`rooms/${roomId}/items`), 'child_added', snap => {
     const item = snap.val();
     if (!item) return;
@@ -3726,27 +4080,28 @@ function setupOnlineListeners() {
     if (G.running) renderAll();
   });
 
-  // --- spawner: items生成責任の切り替え（切断時）---
+  // --- spawner ---
   _on(db.ref(`rooms/${roomId}/spawner`), 'value', snap => {
     const spawner = snap.val();
     if (spawner) G.itemSpawner = spawner;
   });
 
-  // --- room削除検知: 相手切断 → 勝利 ---
+  // --- room削除検知: 相手切断 ---
   _on(db.ref(`rooms/${roomId}`), 'value', snap => {
     if (!G.running) return;
     if (snap.val() === null) _handleOpponentDisconnect();
   });
 
-  // 自分のプレイヤーデータに onDisconnect を設定（ゴーストプレイヤー対策）
-  const myPlayerRef = db.ref(`rooms/${roomId}/players/${myRole}`);
-  myPlayerRef.onDisconnect().remove();
-
-  // roomが消えたとき自分のwaitingエントリも消す（念のため）
-  db.ref(`lobby/waiting/${myUserId}`).onDisconnect().remove();
+  // ゲーム中 onDisconnect
+  if (myRole === 'player1') {
+    db.ref(`rooms/${roomId}`).onDisconnect().remove();
+  } else {
+    db.ref(`rooms/${roomId}/players/${myRole}`).onDisconnect().remove();
+  }
+  db.ref(`lobby/users/${myUserId}`).onDisconnect().remove();
 }
 
-// 相手切断時の処理
+// ===== 相手切断ハンドラ =====
 function _handleOpponentDisconnect() {
   if (!G.running) return;
   G.running = false;
@@ -3755,7 +4110,6 @@ function _handleOpponentDisconnect() {
   document.removeEventListener('keydown', handleKeydown);
   detachOnlineListeners();
 
-  // 相手切断 → 自分の勝利として結果を表示
   let pScore = 0, cScore = 0;
   const _mo = myOwner();
   G.cells.forEach(cell => { if(cell.owner===_mo)pScore++; else if(cell.owner)cScore++; });
@@ -3769,12 +4123,354 @@ function _handleOpponentDisconnect() {
   document.getElementById('result-maxcombo').textContent = G.maxCombo;
 
   if (roomId) { db.ref(`rooms/${roomId}`).remove(); roomId = null; }
+  currentRoomId = null;
   isOnline = false;
   G.endScreenTimer = setTimeout(() => showScreen('end-screen'), 800);
 }
 
+// ===== ロビーリスナー =====
+function _lobbyOn(ref, event, fn) {
+  ref.on(event, fn);
+  _lobbyRefs.push({ ref, event, fn });
+}
+function _detachLobbyListeners() {
+  _lobbyRefs.forEach(({ ref, event, fn }) => ref.off(event, fn));
+  _lobbyRefs.length = 0;
+}
+
+function _attachLobbyListeners() {
+  // --- オンラインプレイヤー一覧 ---
+  const usersRef = db.ref('lobby/users');
+  const usersSnap = {};
+  _lobbyOn(usersRef, 'child_added', snap => {
+    usersSnap[snap.key] = snap.val();
+    _renderLobbyPlayers(usersSnap);
+  });
+  _lobbyOn(usersRef, 'child_changed', snap => {
+    usersSnap[snap.key] = snap.val();
+    _renderLobbyPlayers(usersSnap);
+  });
+  _lobbyOn(usersRef, 'child_removed', snap => {
+    delete usersSnap[snap.key];
+    _renderLobbyPlayers(usersSnap);
+  });
+
+  // --- ルーム一覧（waiting状態のみ）---
+  const roomsRef = db.ref('rooms').orderByChild('status').equalTo('waiting');
+  const roomsSnap = {};
+  _lobbyOn(roomsRef, 'child_added', snap => {
+    roomsSnap[snap.key] = snap.val();
+    _renderLobbyRooms(roomsSnap);
+  });
+  _lobbyOn(roomsRef, 'child_changed', snap => {
+    roomsSnap[snap.key] = snap.val();
+    _renderLobbyRooms(roomsSnap);
+  });
+  _lobbyOn(roomsRef, 'child_removed', snap => {
+    delete roomsSnap[snap.key];
+    _renderLobbyRooms(roomsSnap);
+  });
+
+  // --- グローバルチャット（直近50件）---
+  const chatRef = db.ref('chat').orderByChild('ts').limitToLast(50);
+  _lobbyOn(chatRef, 'child_added', snap => {
+    const msg = snap.val();
+    if (msg) _appendChatMsg('lobby-chat-messages', msg);
+  });
+}
+
+// ===== ルームリスナー =====
+function _roomOn(ref, event, fn) {
+  ref.on(event, fn);
+  _roomRefs.push({ ref, event, fn });
+}
+function _detachRoomListeners() {
+  _roomRefs.forEach(({ ref, event, fn }) => ref.off(event, fn));
+  _roomRefs.length = 0;
+}
+
+function _attachRoomListeners(rid) {
+  // --- ルームメンバー ---
+  const membersRef = db.ref(`rooms/${rid}/members`);
+  const membersSnap = {};
+  _roomOn(membersRef, 'child_added', snap => {
+    membersSnap[snap.key] = snap.val();
+    _renderRoomPlayers(membersSnap, rid);
+  });
+  _roomOn(membersRef, 'child_changed', snap => {
+    membersSnap[snap.key] = snap.val();
+    _renderRoomPlayers(membersSnap, rid);
+  });
+  _roomOn(membersRef, 'child_removed', snap => {
+    delete membersSnap[snap.key];
+    _renderRoomPlayers(membersSnap, rid);
+  });
+
+  // --- ルーム設定（ホスト以外がリアルタイム追従）---
+  _roomOn(db.ref(`rooms/${rid}/settings`), 'value', snap => {
+    const s = snap.val();
+    if (!s) return;
+    _roomSettings = {
+      n:            Number(s.n)            || settings.n,
+      time:         Number(s.time)         || settings.time,
+      wordLen:      Number(s.wordLen)      || settings.wordLen,
+      itemInterval: Number(s.itemInterval) || settings.itemInterval,
+    };
+    // 非ホストの場合はパネルを再描画（ホストは自分でレンダリング済み）
+    if (!_isHost) _renderRoomSettings();
+  });
+
+  // --- ルーム名 ---
+  _roomOn(db.ref(`rooms/${rid}/name`), 'value', snap => {
+    const name = snap.val();
+    if (name) document.getElementById('room-header-name').textContent = name;
+  });
+
+  // --- ルームチャット ---
+  const roomChatRef = db.ref(`rooms/${rid}/chat`).orderByChild('ts').limitToLast(50);
+  _roomOn(roomChatRef, 'child_added', snap => {
+    const msg = snap.val();
+    if (msg) _appendChatMsg('room-chat-messages', msg);
+  });
+
+  // --- status: playingになったらplayer2はゲーム開始 ---
+  _roomOn(db.ref(`rooms/${rid}/status`), 'value', snap => {
+    if (snap.val() !== 'playing') return;
+    if (_isHost) return; // ホストは_startRoomGameで別途開始
+
+    db.ref(`rooms/${rid}`).once('value', roomSnap => {
+      const room = roomSnap.val();
+      if (!room || !room.uids) return;
+
+      // 自分のロールを特定
+      if (room.uids.player1 === myUserId)      myRole = 'player1';
+      else if (room.uids.player2 === myUserId) myRole = 'player2';
+      else return; // 自分がuidsに含まれていない（観戦等）
+
+      roomId = rid;
+
+      // ルーム設定を適用
+      const s = room.settings || {};
+      if (s.n)            settings.n            = Number(s.n);
+      if (s.time)         settings.time         = Number(s.time);
+      if (s.wordLen)      settings.wordLen      = Number(s.wordLen);
+      if (s.itemInterval) settings.itemInterval = Number(s.itemInterval);
+
+      _detachRoomListeners();
+      startOnlineMatch(room.words, room.startedAt || 0);
+    });
+  });
+
+  // --- ルーム削除検知: ホストが切断した場合 ---
+  _roomOn(db.ref(`rooms/${rid}`), 'value', snap => {
+    if (snap.val() === null && !_isHost) {
+      // ルームが消えた → ロビーに戻る
+      db.ref(`rooms/${rid}/members/${myUserId}`).onDisconnect().cancel();
+      db.ref(`lobby/users/${myUserId}`).onDisconnect().cancel();
+      _detachRoomListeners();
+      currentRoomId = null;
+      _myReady = false;
+      db.ref(`lobby/users/${myUserId}`).set({ hn: myHN, status: 'online', roomId: null });
+      db.ref(`lobby/users/${myUserId}`).onDisconnect().remove();
+      showScreen('lobby-screen');
+      _attachLobbyListeners();
+    }
+  });
+
+  // 初期描画（ホスト用: settings panel + ready/start ボタン初期化）
+  _renderRoomSettings();
+  _updateRoomButtons();
+}
+
+// ===== ロビー描画 =====
+function _renderLobbyPlayers(snap) {
+  const list = document.getElementById('lobby-player-list');
+  if (!list) return;
+  list.innerHTML = '';
+  Object.entries(snap).forEach(([uid, u]) => {
+    const div = document.createElement('div');
+    div.className = 'lobby-player-item' + (uid === myUserId ? ' me' : '');
+    const statusLabel = u.status === 'inroom' ? 'In Room'
+                      : u.status === 'playing' ? 'Playing' : 'Online';
+    div.innerHTML = `<span class="status-dot ${u.status || 'online'}"></span>`
+      + `<span>${u.hn || 'Guest'}${uid === myUserId ? ' (You)' : ''}</span>`
+      + `<span class="status-label" style="margin-left:auto">${statusLabel}</span>`;
+    list.appendChild(div);
+  });
+}
+
+function _renderLobbyRooms(snap) {
+  const list = document.getElementById('lobby-room-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const entries = Object.entries(snap);
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-dim);text-align:center;">ルームがありません</div>';
+    return;
+  }
+  entries.forEach(([rid, room]) => {
+    const memberCount = room.members ? Object.keys(room.members).length : 0;
+    const isFull = memberCount >= 2;
+    const card = document.createElement('div');
+    card.className = 'room-card' + (isFull ? ' full' : '');
+    const s = room.settings || {};
+    card.innerHTML = `<div class="room-card-name">${room.name || 'Room'}</div>`
+      + `<div class="room-card-info">${memberCount}/2 players · ${s.n||6}×${s.n||6} · ${s.time||30}s</div>`;
+    if (!isFull) {
+      card.addEventListener('click', () => joinRoom(rid));
+    }
+    list.appendChild(card);
+  });
+}
+
+function _appendChatMsg(containerId, msg) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  if (msg.uid === 'system') {
+    div.innerHTML = `<span class="chat-msg-hn system">${_escHtml(msg.text)}</span>`;
+  } else {
+    const hnClass = 'chat-msg-hn' + (msg.uid !== myUserId ? ' opp' : '');
+    div.innerHTML = `<span class="${hnClass}">${_escHtml(msg.hn)}</span> `
+      + `<span class="chat-msg-text">${_escHtml(msg.text)}</span>`;
+  }
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function _escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ===== ルーム描画 =====
+function _renderRoomPlayers(snap, rid) {
+  const list = document.getElementById('room-player-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  // hostIdはstatus変更で取得が遅れる場合があるのでroomから読む
+  db.ref(`rooms/${rid}/hostId`).once('value', hsSnap => {
+    const hostId = hsSnap.val();
+    Object.entries(snap).forEach(([uid, m]) => {
+      const isThisHost = uid === hostId;
+      const isMe = uid === myUserId;
+      const div = document.createElement('div');
+      div.className = 'room-player-item';
+      div.innerHTML = `<span class="room-player-hn">${_escHtml(m.hn || 'Guest')}${isMe ? ' (You)' : ''}</span>`
+        + (isThisHost ? '<span class="room-host-badge">HOST</span>' : '')
+        + `<span class="room-ready-badge ${m.ready ? 'ready' : 'waiting'}">${m.ready ? 'READY' : 'WAIT'}</span>`;
+      list.appendChild(div);
+    });
+
+    // ルームステータステキスト更新
+    const total = Object.keys(snap).length;
+    const ready = Object.values(snap).filter(m => m.ready).length;
+    const statusEl = document.getElementById('room-status-text');
+    if (statusEl) statusEl.textContent = `${total}/2 players · ${ready} ready`;
+
+    _updateRoomButtons(snap);
+  });
+}
+
+function _renderRoomSettings() {
+  const panel = document.getElementById('room-settings-panel');
+  if (!panel) return;
+  panel.innerHTML = '';
+
+  const groups = [
+    { label: 'Map Size',       key: 'n',            opts: [{v:5,l:'5×5'},{v:6,l:'6×6'},{v:7,l:'7×7'},{v:8,l:'8×8'}] },
+    { label: 'Time Limit',     key: 'time',         opts: [{v:15,l:'15s'},{v:30,l:'30s'},{v:45,l:'45s'},{v:60,l:'60s'}] },
+    { label: 'Word Length',    key: 'wordLen',      opts: [{v:3,l:'3'},{v:4,l:'4'},{v:5,l:'5'},{v:6,l:'6'}] },
+    { label: 'Item Frequency', key: 'itemInterval', opts: [{v:5,l:'5s'},{v:10,l:'10s'},{v:15,l:'15s'},{v:20,l:'20s'},{v:0,l:'∞'}] },
+  ];
+
+  groups.forEach(g => {
+    const group = document.createElement('div');
+    group.className = 'setting-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'setting-label';
+    lbl.textContent = g.label;
+    group.appendChild(lbl);
+
+    const btnGroup = document.createElement('div');
+    btnGroup.className = 'btn-group';
+    g.opts.forEach(opt => {
+      const btn = document.createElement('button');
+      const curVal = Number(_roomSettings[g.key] ?? settings[g.key]);
+      btn.className = 'opt-btn' + (curVal === opt.v ? ' selected' : '');
+      btn.textContent = opt.l;
+      if (!_isHost) {
+        btn.disabled = true;
+      } else {
+        btn.addEventListener('click', () => {
+          btnGroup.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          _roomSettings[g.key] = opt.v;
+          settings[g.key] = opt.v;
+          if (currentRoomId) db.ref(`rooms/${currentRoomId}/settings/${g.key}`).set(opt.v);
+        });
+      }
+      btnGroup.appendChild(btn);
+    });
+    group.appendChild(btnGroup);
+    panel.appendChild(group);
+  });
+}
+
+function _updateRoomButtons(membersSnap) {
+  const readyBtn = document.getElementById('room-ready-btn');
+  const startBtn = document.getElementById('room-start-btn');
+  if (!readyBtn || !startBtn) return;
+
+  if (_isHost) {
+    readyBtn.style.display = 'none';
+    startBtn.style.display = 'inline-block';
+    // 自分以外が全員ready かチェック
+    if (membersSnap) {
+      const others = Object.entries(membersSnap).filter(([uid]) => uid !== myUserId);
+      const total = Object.keys(membersSnap).length;
+      const allReady = total >= 2 && others.every(([, m]) => m.ready);
+      startBtn.disabled = !allReady;
+      startBtn.style.opacity = allReady ? '1' : '0.5';
+    } else {
+      startBtn.disabled = true;
+      startBtn.style.opacity = '0.5';
+    }
+  } else {
+    readyBtn.style.display = 'inline-block';
+    startBtn.style.display = 'none';
+    readyBtn.textContent = _myReady ? 'UNREADY' : 'READY';
+    readyBtn.style.background = _myReady
+      ? 'linear-gradient(135deg,#a0ff80,#40cc40)'
+      : 'linear-gradient(135deg, var(--player-color), #2260cc)';
+    readyBtn.style.color = _myReady ? '#000' : '#fff';
+  }
+}
+
+// ===== ロビー/ルーム画面ボタン初期化 =====
+function initLobbyScreens() {
+  // ロビー画面
+  document.getElementById('lobby-leave-btn').addEventListener('click', leaveLobby);
+  document.getElementById('lobby-create-btn').addEventListener('click', createRoom);
+
+  const lobbyChatInput = document.getElementById('lobby-chat-input');
+  document.getElementById('lobby-chat-send').addEventListener('click', sendLobbyChat);
+  lobbyChatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendLobbyChat(); } });
+
+  // ルーム画面
+  document.getElementById('room-leave-btn').addEventListener('click', leaveRoom);
+  document.getElementById('room-ready-btn').addEventListener('click', toggleReady);
+  document.getElementById('room-start-btn').addEventListener('click', hostStartGame);
+
+  const roomChatInput = document.getElementById('room-chat-input');
+  document.getElementById('room-chat-send').addEventListener('click', sendRoomChat);
+  roomChatInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendRoomChat(); } });
+}
+
 // ===== BOOT =====
 initStartScreen();
+initLobbyScreens();
 
 })();
 </script>
