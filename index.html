@@ -1339,11 +1339,12 @@ body::before {
     </div>
   </div>
   <div class="room-footer">
-    <button class="start-btn" id="room-ready-btn"
-      style="font-size:12px;letter-spacing:4px;padding:9px 28px;">READY</button>
     <button class="start-btn" id="room-start-btn"
-      style="display:none;font-size:12px;letter-spacing:4px;padding:9px 28px;background:linear-gradient(135deg,#a0ff80,#40cc40);color:#000;">
-      START GAME
+      style="font-size:12px;letter-spacing:3px;padding:9px 28px;opacity:0.4;"
+      disabled>ゲームを開始</button>
+    <button class="start-btn" id="room-cancel-start-btn"
+      style="display:none;font-size:12px;letter-spacing:2px;padding:9px 20px;background:linear-gradient(135deg,#ff8080,#cc4040);color:#fff;">
+      キャンセル
     </button>
     <button class="retry-btn" id="room-leave-btn"
       style="font-size:11px;padding:7px 18px;">LEAVE ROOM</button>
@@ -3765,14 +3766,16 @@ const lastTs = {};
 const _listeners = [];
 
 // ===== ロビーシステム状態 =====
-let myHN = null;           // ハンドルネーム (例: "Guest1234")
-let currentRoomId = null;  // ロビーで参加中のルームID (ゲーム開始前)
-let _isHost = false;       // 自分がルームのホストか
-let _myReady = false;      // 自分のready状態
-let _roomSettings = {};    // ルーム設定のローカルコピー（ホストが書き換え）
-let _lastChatMs = 0;       // チャットスパム防止: 最終送信時刻
-let _lobbyRefs = [];       // ロビー画面用リスナー参照
-let _roomRefs  = [];       // ルーム画面用リスナー参照
+let myHN = null;               // ハンドルネーム (例: "Guest1234")
+let currentRoomId = null;      // ロビーで参加中のルームID (ゲーム開始前)
+let _isHost = false;           // 自分がルームのホストか
+let _myReady = false;          // 自分のready状態（ゲームを開始ボタン押下）
+let _settingsConfirmed = false; // ルール確定済みか
+let _gameStarting = false;     // _startRoomGame多重呼び出し防止
+let _roomSettings = {};        // ルーム設定のローカルコピー（ホストが書き換え）
+let _lastChatMs = 0;           // チャットスパム防止: 最終送信時刻
+let _lobbyRefs = [];           // ロビー画面用リスナー参照
+let _roomRefs  = [];           // ルーム画面用リスナー参照
 
 // ===== HN生成 =====
 function generateHN() {
@@ -3782,7 +3785,8 @@ function generateHN() {
 // ===== ロビー入場 =====
 function enterLobby() {
   if (!myUserId) { alert('認証中です。少し待ってください。'); return; }
-  myHN = generateHN();
+  // HNはセッション中に1度だけ生成（再入室しても同じHNを維持）
+  if (!myHN) myHN = generateHN();
 
   const userRef = db.ref(`lobby/users/${myUserId}`);
   userRef.set({ hn: myHN, status: 'online', roomId: null });
@@ -3821,12 +3825,14 @@ function createRoom() {
     time: settings.time,
     wordLen: settings.wordLen,
     itemInterval: settings.itemInterval,
+    language: settings.language || 'en',
   };
 
   db.ref(`rooms/${newRoomId}`).set({
     name: roomName,
     hostId: myUserId,
     status: 'waiting',
+    settingsConfirmed: false,
     settings: _roomSettings,
     members: { [myUserId]: { hn: myHN, ready: false } },
     createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -3834,6 +3840,8 @@ function createRoom() {
     currentRoomId = newRoomId;
     _isHost = true;
     _myReady = false;
+    _settingsConfirmed = false;
+    _gameStarting = false;
 
     db.ref(`lobby/users/${myUserId}`).update({ status: 'inroom', roomId: newRoomId });
     // onDisconnect: ホストが切断したらルーム全体を削除
@@ -3853,6 +3861,8 @@ function joinRoom(targetRoomId) {
     currentRoomId = targetRoomId;
     _isHost = false;
     _myReady = false;
+    _settingsConfirmed = false;
+    _gameStarting = false;
 
     db.ref(`lobby/users/${myUserId}`).update({ status: 'inroom', roomId: targetRoomId });
     db.ref(`rooms/${targetRoomId}/members/${myUserId}`).onDisconnect().remove();
@@ -3916,43 +3926,34 @@ function sendRoomChat() {
   input.value = '';
 }
 
-// ===== Ready トグル =====
-function toggleReady() {
-  if (!currentRoomId || !myUserId) return;
-  _myReady = !_myReady;
-  db.ref(`rooms/${currentRoomId}/members/${myUserId}`).update({ ready: _myReady });
-  const btn = document.getElementById('room-ready-btn');
-  if (btn) {
-    btn.textContent = _myReady ? 'UNREADY' : 'READY';
-    btn.style.background = _myReady
-      ? 'linear-gradient(135deg,#a0ff80,#40cc40)'
-      : 'linear-gradient(135deg, var(--player-color), #2260cc)';
-    btn.style.color = _myReady ? '#000' : '#fff';
-  }
+// ===== ゲームを開始ボタン =====
+function pressStartGame() {
+  if (!currentRoomId || !myUserId || !_settingsConfirmed || _myReady) return;
+  _myReady = true;
+  db.ref(`rooms/${currentRoomId}/members/${myUserId}`).update({ ready: true });
+  _updateRoomButtons();
 }
 
-// ===== ゲーム開始（ホスト） =====
-function hostStartGame() {
-  if (!currentRoomId || !_isHost) return;
-  db.ref(`rooms/${currentRoomId}/members`).once('value', snap => {
-    const members = snap.val() || {};
-    const uids = Object.keys(members);
-    if (uids.length < 2) { alert('プレイヤーが2人必要です'); return; }
-    const allReady = uids.every(uid => uid === myUserId || members[uid].ready);
-    if (!allReady) { alert('全員がREADYになるまで開始できません'); return; }
-    const opponentUid = uids.find(uid => uid !== myUserId);
-    _startRoomGame(opponentUid);
-  });
+// ===== キャンセルボタン =====
+function cancelStartGame() {
+  if (!currentRoomId || !myUserId) return;
+  _myReady = false;
+  db.ref(`rooms/${currentRoomId}/members/${myUserId}`).update({ ready: false });
+  _updateRoomButtons();
 }
 
 // ===== ルームゲーム開始処理（ホスト側） =====
 function _startRoomGame(opponentUid) {
+  if (_gameStarting) return;
+  _gameStarting = true;
+
   // ルーム設定を最新値で確定
   const s = _roomSettings;
-  if (s.n)            settings.n            = Number(s.n);
-  if (s.time)         settings.time         = Number(s.time);
-  if (s.wordLen)      settings.wordLen      = Number(s.wordLen);
-  if (s.itemInterval) settings.itemInterval = Number(s.itemInterval);
+  if (s.n)                         settings.n            = Number(s.n);
+  if (s.time)                      settings.time         = Number(s.time);
+  if (s.wordLen)                   settings.wordLen      = Number(s.wordLen);
+  if (Number(s.itemInterval) >= 0) settings.itemInterval = Number(s.itemInterval);
+  if (s.language)                  settings.language     = s.language;
 
   const words = selectWords(settings.n, settings.wordLen);
   const n = settings.n;
@@ -4172,6 +4173,10 @@ function _attachLobbyListeners() {
   });
 
   // --- グローバルチャット（直近50件）---
+  // child_added はアタッチ時に既存メッセージも発火するため、
+  // コンテナをクリアしてから改めて初期ロードする
+  const chatContainer = document.getElementById('lobby-chat-messages');
+  if (chatContainer) chatContainer.innerHTML = '';
   const chatRef = db.ref('chat').orderByChild('ts').limitToLast(50);
   _lobbyOn(chatRef, 'child_added', snap => {
     const msg = snap.val();
@@ -4206,7 +4211,7 @@ function _attachRoomListeners(rid) {
     _renderRoomPlayers(membersSnap, rid);
   });
 
-  // --- ルーム設定（ホスト以外がリアルタイム追従）---
+  // --- ルーム設定（全員がリアルタイム追従）---
   _roomOn(db.ref(`rooms/${rid}/settings`), 'value', snap => {
     const s = snap.val();
     if (!s) return;
@@ -4214,10 +4219,18 @@ function _attachRoomListeners(rid) {
       n:            Number(s.n)            || settings.n,
       time:         Number(s.time)         || settings.time,
       wordLen:      Number(s.wordLen)      || settings.wordLen,
-      itemInterval: Number(s.itemInterval) || settings.itemInterval,
+      itemInterval: Number(s.itemInterval) >= 0 ? Number(s.itemInterval) : settings.itemInterval,
+      language:     s.language             || settings.language || 'en',
     };
-    // 非ホストの場合はパネルを再描画（ホストは自分でレンダリング済み）
+    // 非ホストはパネルを再描画（ホストは自分で操作中なので上書きしない）
     if (!_isHost) _renderRoomSettings();
+  });
+
+  // --- settingsConfirmed: ルール確定状態の同期 ---
+  _roomOn(db.ref(`rooms/${rid}/settingsConfirmed`), 'value', snap => {
+    _settingsConfirmed = snap.val() === true;
+    _renderRoomSettings();
+    _updateRoomButtons();
   });
 
   // --- ルーム名 ---
@@ -4227,6 +4240,8 @@ function _attachRoomListeners(rid) {
   });
 
   // --- ルームチャット ---
+  const roomChatContainer = document.getElementById('room-chat-messages');
+  if (roomChatContainer) roomChatContainer.innerHTML = '';
   const roomChatRef = db.ref(`rooms/${rid}/chat`).orderByChild('ts').limitToLast(50);
   _roomOn(roomChatRef, 'child_added', snap => {
     const msg = snap.val();
@@ -4251,10 +4266,11 @@ function _attachRoomListeners(rid) {
 
       // ルーム設定を適用
       const s = room.settings || {};
-      if (s.n)            settings.n            = Number(s.n);
-      if (s.time)         settings.time         = Number(s.time);
-      if (s.wordLen)      settings.wordLen      = Number(s.wordLen);
-      if (s.itemInterval) settings.itemInterval = Number(s.itemInterval);
+      if (s.n)                         settings.n            = Number(s.n);
+      if (s.time)                      settings.time         = Number(s.time);
+      if (s.wordLen)                   settings.wordLen      = Number(s.wordLen);
+      if (Number(s.itemInterval) >= 0) settings.itemInterval = Number(s.itemInterval);
+      if (s.language)                  settings.language     = s.language;
 
       _detachRoomListeners();
       startOnlineMatch(room.words, room.startedAt || 0);
@@ -4314,8 +4330,15 @@ function _renderLobbyRooms(snap) {
     const card = document.createElement('div');
     card.className = 'room-card' + (isFull ? ' full' : '');
     const s = room.settings || {};
-    card.innerHTML = `<div class="room-card-name">${room.name || 'Room'}</div>`
-      + `<div class="room-card-info">${memberCount}/2 players · ${s.n||6}×${s.n||6} · ${s.time||30}s</div>`;
+    let ruleInfo;
+    if (room.settingsConfirmed) {
+      const langLabel = s.language === 'ja' ? '日本語' : 'English';
+      ruleInfo = `${s.n||6}×${s.n||6} · ${s.time||30}s · ${langLabel}`;
+    } else {
+      ruleInfo = 'ルール設定中';
+    }
+    card.innerHTML = `<div class="room-card-name">${_escHtml(room.name || 'Room')}</div>`
+      + `<div class="room-card-info">${memberCount}/2 · ${ruleInfo}</div>`;
     if (!isFull) {
       card.addEventListener('click', () => joinRoom(rid));
     }
@@ -4378,11 +4401,20 @@ function _renderRoomSettings() {
   if (!panel) return;
   panel.innerHTML = '';
 
+  // ホストかつルール未確定のときのみ編集可
+  const editable = _isHost && !_settingsConfirmed;
+
   const groups = [
-    { label: 'Map Size',       key: 'n',            opts: [{v:5,l:'5×5'},{v:6,l:'6×6'},{v:7,l:'7×7'},{v:8,l:'8×8'}] },
-    { label: 'Time Limit',     key: 'time',         opts: [{v:15,l:'15s'},{v:30,l:'30s'},{v:45,l:'45s'},{v:60,l:'60s'}] },
-    { label: 'Word Length',    key: 'wordLen',      opts: [{v:3,l:'3'},{v:4,l:'4'},{v:5,l:'5'},{v:6,l:'6'}] },
-    { label: 'Item Frequency', key: 'itemInterval', opts: [{v:5,l:'5s'},{v:10,l:'10s'},{v:15,l:'15s'},{v:20,l:'20s'},{v:0,l:'∞'}] },
+    { label: 'Language',      key: 'language',     isStr: true,
+      opts: [{v:'en',l:'English'},{v:'ja',l:'日本語'}] },
+    { label: 'Map Size',      key: 'n',
+      opts: [{v:5,l:'5×5'},{v:6,l:'6×6'},{v:7,l:'7×7'},{v:8,l:'8×8'}] },
+    { label: 'Time Limit',    key: 'time',
+      opts: [{v:15,l:'15s'},{v:30,l:'30s'},{v:45,l:'45s'},{v:60,l:'60s'}] },
+    { label: 'Word Length',   key: 'wordLen',
+      opts: [{v:3,l:'3'},{v:4,l:'4'},{v:5,l:'5'},{v:6,l:'6'}] },
+    { label: 'Item Interval', key: 'itemInterval',
+      opts: [{v:5,l:'5s'},{v:10,l:'10s'},{v:15,l:'15s'},{v:20,l:'20s'},{v:0,l:'∞'}] },
   ];
 
   groups.forEach(g => {
@@ -4397,10 +4429,11 @@ function _renderRoomSettings() {
     btnGroup.className = 'btn-group';
     g.opts.forEach(opt => {
       const btn = document.createElement('button');
-      const curVal = Number(_roomSettings[g.key] ?? settings[g.key]);
+      const cur = _roomSettings[g.key] ?? settings[g.key];
+      const curVal = g.isStr ? cur : Number(cur);
       btn.className = 'opt-btn' + (curVal === opt.v ? ' selected' : '');
       btn.textContent = opt.l;
-      if (!_isHost) {
+      if (!editable) {
         btn.disabled = true;
       } else {
         btn.addEventListener('click', () => {
@@ -4416,35 +4449,87 @@ function _renderRoomSettings() {
     group.appendChild(btnGroup);
     panel.appendChild(group);
   });
+
+  // ===== ルールを確定 / ルールを変更 ボタン =====
+  const btnRow = document.createElement('div');
+  btnRow.style.cssText = 'margin-top:8px;';
+
+  if (!_settingsConfirmed) {
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'start-btn';
+    confirmBtn.style.cssText = 'width:100%;font-size:12px;letter-spacing:2px;padding:9px;';
+    confirmBtn.textContent = 'ルールを確定';
+    if (!_isHost) {
+      confirmBtn.disabled = true;
+      confirmBtn.style.opacity = '0.4';
+      confirmBtn.style.cursor = 'not-allowed';
+    } else {
+      confirmBtn.addEventListener('click', () => {
+        if (!currentRoomId) return;
+        _settingsConfirmed = true;
+        db.ref(`rooms/${currentRoomId}/settingsConfirmed`).set(true);
+        _renderRoomSettings();
+        _updateRoomButtons();
+      });
+    }
+    btnRow.appendChild(confirmBtn);
+  } else {
+    const changeBtn = document.createElement('button');
+    changeBtn.className = 'retry-btn';
+    changeBtn.style.cssText = 'width:100%;font-size:11px;letter-spacing:2px;padding:8px;';
+    changeBtn.textContent = 'ルールを変更';
+    if (!_isHost) {
+      changeBtn.disabled = true;
+      changeBtn.style.opacity = '0.4';
+      changeBtn.style.cursor = 'not-allowed';
+    } else {
+      changeBtn.addEventListener('click', () => {
+        if (!currentRoomId) return;
+        _settingsConfirmed = false;
+        // 全員のready状態もリセット
+        db.ref(`rooms/${currentRoomId}/settingsConfirmed`).set(false);
+        db.ref(`rooms/${currentRoomId}/members`).once('value', snap => {
+          const upd = {};
+          Object.keys(snap.val() || {}).forEach(uid => { upd[`${uid}/ready`] = false; });
+          if (Object.keys(upd).length) db.ref(`rooms/${currentRoomId}/members`).update(upd);
+        });
+        _myReady = false;
+        _renderRoomSettings();
+        _updateRoomButtons();
+      });
+    }
+    btnRow.appendChild(changeBtn);
+  }
+
+  panel.appendChild(btnRow);
 }
 
 function _updateRoomButtons(membersSnap) {
-  const readyBtn = document.getElementById('room-ready-btn');
-  const startBtn = document.getElementById('room-start-btn');
-  if (!readyBtn || !startBtn) return;
+  const startBtn   = document.getElementById('room-start-btn');
+  const cancelBtn  = document.getElementById('room-cancel-start-btn');
+  if (!startBtn) return;
 
-  if (_isHost) {
-    readyBtn.style.display = 'none';
-    startBtn.style.display = 'inline-block';
-    // 自分以外が全員ready かチェック
-    if (membersSnap) {
-      const others = Object.entries(membersSnap).filter(([uid]) => uid !== myUserId);
-      const total = Object.keys(membersSnap).length;
-      const allReady = total >= 2 && others.every(([, m]) => m.ready);
-      startBtn.disabled = !allReady;
-      startBtn.style.opacity = allReady ? '1' : '0.5';
-    } else {
-      startBtn.disabled = true;
-      startBtn.style.opacity = '0.5';
-    }
+  if (_myReady) {
+    // 自分がゲームを開始押下済み → Waiting... 表示
+    startBtn.textContent  = 'Waiting...';
+    startBtn.disabled     = true;
+    startBtn.style.opacity = '0.5';
+    if (cancelBtn) cancelBtn.style.display = 'inline-block';
   } else {
-    readyBtn.style.display = 'inline-block';
-    startBtn.style.display = 'none';
-    readyBtn.textContent = _myReady ? 'UNREADY' : 'READY';
-    readyBtn.style.background = _myReady
-      ? 'linear-gradient(135deg,#a0ff80,#40cc40)'
-      : 'linear-gradient(135deg, var(--player-color), #2260cc)';
-    readyBtn.style.color = _myReady ? '#000' : '#fff';
+    // 未押下 → 設定確定済みなら有効
+    startBtn.textContent  = 'ゲームを開始';
+    startBtn.disabled     = !_settingsConfirmed;
+    startBtn.style.opacity = _settingsConfirmed ? '1' : '0.4';
+    if (cancelBtn) cancelBtn.style.display = 'none';
+  }
+
+  // ホストのみ: 全員(2人以上)がready かつ設定確定済みならゲーム開始
+  if (_isHost && membersSnap && _settingsConfirmed) {
+    const uids = Object.keys(membersSnap);
+    if (uids.length >= 2 && uids.every(uid => membersSnap[uid].ready)) {
+      const opponentUid = uids.find(uid => uid !== myUserId);
+      if (opponentUid) _startRoomGame(opponentUid);
+    }
   }
 }
 
@@ -4460,8 +4545,8 @@ function initLobbyScreens() {
 
   // ルーム画面
   document.getElementById('room-leave-btn').addEventListener('click', leaveRoom);
-  document.getElementById('room-ready-btn').addEventListener('click', toggleReady);
-  document.getElementById('room-start-btn').addEventListener('click', hostStartGame);
+  document.getElementById('room-start-btn').addEventListener('click', pressStartGame);
+  document.getElementById('room-cancel-start-btn').addEventListener('click', cancelStartGame);
 
   const roomChatInput = document.getElementById('room-chat-input');
   document.getElementById('room-chat-send').addEventListener('click', sendRoomChat);
