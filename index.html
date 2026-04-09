@@ -830,6 +830,8 @@ body::before {
   align-items: stretch;
   justify-content: flex-start;
   flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .lobby-header {
@@ -996,6 +998,8 @@ body::before {
   align-items: stretch;
   justify-content: flex-start;
   flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
 }
 .room-header {
   display: flex;
@@ -1341,10 +1345,10 @@ body::before {
   <div class="room-footer">
     <button class="start-btn" id="room-start-btn"
       style="font-size:12px;letter-spacing:3px;padding:9px 28px;opacity:0.4;"
-      disabled>ゲームを開始</button>
+      disabled>START GAME</button>
     <button class="start-btn" id="room-cancel-start-btn"
       style="display:none;font-size:12px;letter-spacing:2px;padding:9px 20px;background:linear-gradient(135deg,#ff8080,#cc4040);color:#fff;">
-      キャンセル
+      CANCEL
     </button>
     <button class="retry-btn" id="room-leave-btn"
       style="font-size:11px;padding:7px 18px;">LEAVE ROOM</button>
@@ -3127,6 +3131,7 @@ function triggerBomb(attackerOwner) {
   if (isOnline && roomId && attackerOwner === myOwner()) {
     writeGridCells(painted, attackerOwner);
     writeOppPos(homeR, homeC);
+    db.ref(`rooms/${roomId}/itemEffect`).set({ type: 'bomb', attackerOwner, victimR: br, victimC: bc, ts: firebase.database.ServerValue.TIMESTAMP });
   }
 
   playExplosion();
@@ -3186,6 +3191,7 @@ function triggerMeteor(attackerOwner) {
   // 攻撃側のみFBに書く（ランダム結果を確定させる）
   if (isOnline && roomId && attackerOwner === myOwner()) {
     writeGridCells(hit, attackerOwner);
+    db.ref(`rooms/${roomId}/itemEffect`).set({ type: 'meteor', attackerOwner, ts: firebase.database.ServerValue.TIMESTAMP });
   }
 }
 
@@ -3222,6 +3228,7 @@ function triggerBanish(attackerOwner) {
     // 攻撃側のみFBに書く（ランダム結果を確定。相手はplayersリスナーで位置を受信）
     if (isOnline && roomId && attackerOwner === myOwner()) {
       db.ref(`rooms/${roomId}/players/${victimRole}`).update({ r: dest.r, c: dest.c });
+      db.ref(`rooms/${roomId}/itemEffect`).set({ type: 'banish', attackerOwner, fromR, fromC, ts: firebase.database.ServerValue.TIMESTAMP });
     }
 
     const toEl = document.getElementById(`cell-${dest.r}-${dest.c}`);
@@ -3284,6 +3291,7 @@ function triggerMissile(attackerOwner, itemR, itemC) {
   // 攻撃側のみFBに書く
   if (isOnline && roomId && attackerOwner === myOwner()) {
     setTimeout(() => writeGridCells(paintedCells, attackerOwner), maxSteps * msPerStep);
+    db.ref(`rooms/${roomId}/itemEffect`).set({ type: 'missile', attackerOwner, itemR, itemC, ts: firebase.database.ServerValue.TIMESTAMP });
   }
 }
 
@@ -3330,6 +3338,7 @@ function triggerBeam(attackerOwner, itemR, itemC) {
   // 攻撃側のみFBに書く
   if (isOnline && roomId && attackerOwner === myOwner()) {
     setTimeout(() => writeGridCells(paintedCells, attackerOwner), steps.length * msPerStep);
+    db.ref(`rooms/${roomId}/itemEffect`).set({ type: 'beam', attackerOwner, itemR, itemC, ts: firebase.database.ServerValue.TIMESTAMP });
   }
 }
 
@@ -4028,6 +4037,99 @@ function _on(ref, event, fn) {
   _listeners.push({ ref, event, fn });
 }
 
+// ===== 相手アイテム演出のみ（状態変更・FB書き込みなし）=====
+function _animBomb(attackerOwner, victimR, victimC) {
+  playExplosion();
+  const el = document.getElementById(`cell-${victimR}-${victimC}`);
+  if (el) {
+    const ex = document.createElement('div');
+    ex.className = 'explosion';
+    el.appendChild(ex);
+    setTimeout(() => ex.remove(), 600);
+  }
+}
+
+function _animMeteor() {
+  playMeteor();
+  const overlay = document.createElement('div');
+  overlay.className = 'meteor-overlay';
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 800);
+}
+
+function _animBanish(fromR, fromC) {
+  playTone(800, 'sine', 0.3, 0.4);
+  const fromEl = document.getElementById(`cell-${fromR}-${fromC}`);
+  if (fromEl) {
+    const fx = document.createElement('div');
+    fx.className = 'banish-out';
+    fx.textContent = '🌀';
+    fromEl.appendChild(fx);
+    setTimeout(() => fx.remove(), 500);
+  }
+}
+
+function _animMissile(attackerOwner, itemR, itemC) {
+  const n = G.n;
+  const dirAngles = { '-1,-1': '270deg', '-1,1': '0deg', '1,-1': '180deg', '1,1': '90deg' };
+  const sequences = [];
+  [[-1,-1],[-1,1],[1,-1],[1,1]].forEach(([dr,dc]) => {
+    const seq = [];
+    let r = itemR + dr, c = itemC + dc;
+    while (r >= 0 && r < n && c >= 0 && c < n) { seq.push({r, c}); r += dr; c += dc; }
+    if (seq.length) sequences.push({ seq, angle: dirAngles[`${dr},${dc}`] });
+  });
+  const maxSteps = Math.max(...sequences.map(s => s.seq.length));
+  for (let step = 0; step < maxSteps; step++) {
+    setTimeout(() => {
+      sequences.forEach(({ seq, angle }) => {
+        if (step >= seq.length) return;
+        const { r, c } = seq[step];
+        const el = document.getElementById(`cell-${r}-${c}`);
+        if (el) {
+          const icon = document.createElement('div');
+          icon.className = 'missile-icon';
+          icon.style.setProperty('--missile-rot', angle);
+          icon.textContent = '🚀';
+          el.appendChild(icon);
+          setTimeout(() => icon.remove(), 300);
+        }
+        playTone(400 + step * 80, 'sawtooth', 0.06, 0.15);
+      });
+    }, step * 80);
+  }
+}
+
+function _animBeam(attackerOwner, itemR, itemC) {
+  const n = G.n;
+  const msPerStep = 55;
+  const steps = [];
+  for (let d = 1; d <= n - 1; d++) {
+    const batch = [];
+    if (itemC - d >= 0) batch.push({ r: itemR, c: itemC - d, dir: 'h' });
+    if (itemC + d < n)  batch.push({ r: itemR, c: itemC + d, dir: 'h' });
+    if (itemR - d >= 0) batch.push({ r: itemR - d, c: itemC, dir: 'v' });
+    if (itemR + d < n)  batch.push({ r: itemR + d, c: itemC, dir: 'v' });
+    if (batch.length) steps.push(batch);
+  }
+  playTone(300, 'sawtooth', 0.2);
+  setTimeout(() => playTone(600,  'sine', 0.15), 100);
+  setTimeout(() => playTone(1200, 'sine', 0.1),  200);
+  steps.forEach((batch, i) => {
+    setTimeout(() => {
+      batch.forEach(({ r, c, dir }) => {
+        const el = document.getElementById(`cell-${r}-${c}`);
+        if (el) {
+          const fx = document.createElement('div');
+          fx.className = `beam-hit beam-${dir}`;
+          el.appendChild(fx);
+          setTimeout(() => fx.remove(), 400);
+        }
+      });
+    }, i * msPerStep);
+  });
+}
+
 // ===== ゲーム同期リスナー（状態同期型）=====
 function setupOnlineListeners() {
   // --- players: 位置・freezeUntil 同期 ---
@@ -4079,6 +4181,23 @@ function setupOnlineListeners() {
     delete G.mapItems[key];
     delete G.itemFbKeys[key];
     if (G.running) renderAll();
+  });
+
+  // --- itemEffect: 相手アイテム演出シグナル ---
+  let _lastItemEffectTs = 0;
+  _on(db.ref(`rooms/${roomId}/itemEffect`), 'value', snap => {
+    const e = snap.val();
+    if (!e || !G.running) return;
+    if (e.ts <= _lastItemEffectTs) return;
+    _lastItemEffectTs = e.ts;
+    if (e.attackerOwner === myOwner()) return; // 自分が攻撃側 → 既にアニメ済み
+    switch (e.type) {
+      case 'bomb':    _animBomb(e.attackerOwner, e.victimR, e.victimC); break;
+      case 'meteor':  _animMeteor(); break;
+      case 'banish':  _animBanish(e.fromR, e.fromC); break;
+      case 'missile': _animMissile(e.attackerOwner, e.itemR, e.itemC); break;
+      case 'beam':    _animBeam(e.attackerOwner, e.itemR, e.itemC); break;
+    }
   });
 
   // --- spawner ---
@@ -4458,7 +4577,7 @@ function _renderRoomSettings() {
     const confirmBtn = document.createElement('button');
     confirmBtn.className = 'start-btn';
     confirmBtn.style.cssText = 'width:100%;font-size:12px;letter-spacing:2px;padding:9px;';
-    confirmBtn.textContent = 'ルールを確定';
+    confirmBtn.textContent = 'CONFIRM RULES';
     if (!_isHost) {
       confirmBtn.disabled = true;
       confirmBtn.style.opacity = '0.4';
@@ -4477,7 +4596,7 @@ function _renderRoomSettings() {
     const changeBtn = document.createElement('button');
     changeBtn.className = 'retry-btn';
     changeBtn.style.cssText = 'width:100%;font-size:11px;letter-spacing:2px;padding:8px;';
-    changeBtn.textContent = 'ルールを変更';
+    changeBtn.textContent = 'CHANGE RULES';
     if (!_isHost) {
       changeBtn.disabled = true;
       changeBtn.style.opacity = '0.4';
@@ -4511,13 +4630,13 @@ function _updateRoomButtons(membersSnap) {
 
   if (_myReady) {
     // 自分がゲームを開始押下済み → Waiting... 表示
-    startBtn.textContent  = 'Waiting...';
+    startBtn.textContent  = 'WAITING...';
     startBtn.disabled     = true;
     startBtn.style.opacity = '0.5';
     if (cancelBtn) cancelBtn.style.display = 'inline-block';
   } else {
     // 未押下 → 設定確定済みなら有効
-    startBtn.textContent  = 'ゲームを開始';
+    startBtn.textContent  = 'START GAME';
     startBtn.disabled     = !_settingsConfirmed;
     startBtn.style.opacity = _settingsConfirmed ? '1' : '0.4';
     if (cancelBtn) cancelBtn.style.display = 'none';
