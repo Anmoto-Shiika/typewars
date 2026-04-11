@@ -439,6 +439,28 @@ body::before {
   50%      { transform: translateX(-50%) translateY(-4px); }
 }
 
+/* ===== CHARACTER LABELS ===== */
+.char-label {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  z-index: 12;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 6px;
+  border-radius: 3px;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+.char-label-me  { background: var(--player-color); color: #fff; box-shadow: 0 0 6px var(--player-glow); }
+.char-label-opp { background: var(--cpu-color);    color: #fff; box-shadow: 0 0 6px var(--cpu-glow); }
+
 /* ===== SIDE PANELS ===== */
 .side-panel {
   display: flex;
@@ -953,11 +975,13 @@ body::before {
   gap: 3px;
   min-height: 0;
 }
-.chat-msg { font-size: 12px; line-height: 1.45; word-break: break-all; }
+.chat-msg { font-size: 12px; line-height: 1.45; display: flex; align-items: baseline; gap: 0 5px; }
+.chat-msg-body { flex: 1; min-width: 0; word-break: break-all; }
 .chat-msg-hn { color: var(--player-color); font-weight: bold; }
 .chat-msg-hn.opp { color: var(--cpu-color); }
 .chat-msg-hn.system { color: var(--text-dim); font-style: italic; }
 .chat-msg-text { color: var(--text); }
+.chat-timestamp { font-size: 10px; color: var(--text-dim); opacity: 0.65; white-space: nowrap; flex-shrink: 0; margin-left: auto; padding-left: 4px; }
 
 .chat-input-row {
   display: flex;
@@ -2675,7 +2699,7 @@ function renderAll() {
       if (pRange.has(itemKey)) el.classList.add('reachable');
 
       // Frozen overlay on CPU
-      el.querySelectorAll('.freeze-overlay,.cpu-frozen-label,.char-svg,.cell-item').forEach(e => e.remove());
+      el.querySelectorAll('.freeze-overlay,.cpu-frozen-label,.char-svg,.char-label,.cell-item').forEach(e => e.remove());
 
       // Item icon
       if (itemType) {
@@ -2688,9 +2712,11 @@ function renderAll() {
       // Characters
       if (hasPlayer) {
         el.appendChild(createPlayerSVG());
+        el.appendChild(createCharLabel(true));
       }
       if (hasCpu) {
         el.appendChild(createCpuSVG());
+        el.appendChild(createCharLabel(false));
         if (isOppFreeze()) {
           const fov = document.createElement('div');
           fov.className = 'freeze-overlay';
@@ -2797,6 +2823,17 @@ function buildCharSVGInner({c1,c2,c3,c4,c5,c6,c7,c8}) {
     <path d="M196 168 Q204 158 208 165 Q204 172 196 168Z" fill="${c7}"/>
     <circle cx="208" cy="165" r="4" fill="${c8}"/>
   `;
+}
+
+function createCharLabel(isMe) {
+  const lbl = document.createElement('div');
+  lbl.className = 'char-label ' + (isMe ? 'char-label-me' : 'char-label-opp');
+  if (isOnline) {
+    lbl.textContent = isMe ? (myHN || 'YOU') : (oppHN || '???');
+  } else {
+    lbl.textContent = isMe ? 'YOU' : 'CPU';
+  }
+  return lbl;
 }
 
 function createPlayerSVG() {
@@ -3395,7 +3432,7 @@ function handleKeydown(e) {
   // 矢印キー（Shift+IJKL対応）
   const arrowDirMap = {
     ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1],
-    I:[-1,0], J:[0,-1], L:[0,1], '<':[1,0],
+    I:[-1,0], J:[0,-1], L:[0,1], K:[1,0],
   };
 
   if (e.key in arrowDirMap && (e.key.startsWith('Arrow') || e.shiftKey)) {
@@ -3784,6 +3821,7 @@ let _gameStarting = false;     // _startRoomGame多重呼び出し防止
 let _roomSettings = {};        // ルーム設定のローカルコピー（ホストが書き換え）
 let _lastChatMs = 0;           // チャットスパム防止: 最終送信時刻
 let _lobbyRefs = [];           // ロビー画面用リスナー参照
+let oppHN = null;              // オンライン対戦時の相手ハンドルネーム
 let _roomRefs  = [];           // ルーム画面用リスナー参照
 
 // ===== HN生成 =====
@@ -3919,7 +3957,9 @@ function sendLobbyChat() {
   const now = Date.now();
   if (now - _lastChatMs < 1000) return; // スパム防止: 1秒インターバル
   _lastChatMs = now;
-  db.ref('chat').push({ uid: myUserId, hn: myHN, text, ts: firebase.database.ServerValue.TIMESTAMP });
+  const lobbyChatRef = db.ref('chat');
+  lobbyChatRef.push({ uid: myUserId, hn: myHN, text, ts: firebase.database.ServerValue.TIMESTAMP })
+    .then(() => _pruneChat(lobbyChatRef));
   input.value = '';
 }
 
@@ -3931,7 +3971,9 @@ function sendRoomChat() {
   const now = Date.now();
   if (now - _lastChatMs < 1000) return;
   _lastChatMs = now;
-  db.ref(`rooms/${currentRoomId}/chat`).push({ uid: myUserId, hn: myHN, text, ts: firebase.database.ServerValue.TIMESTAMP });
+  const roomChatRef = db.ref(`rooms/${currentRoomId}/chat`);
+  roomChatRef.push({ uid: myUserId, hn: myHN, text, ts: firebase.database.ServerValue.TIMESTAMP })
+    .then(() => _pruneChat(roomChatRef));
   input.value = '';
 }
 
@@ -3952,9 +3994,10 @@ function cancelStartGame() {
 }
 
 // ===== ルームゲーム開始処理（ホスト側） =====
-function _startRoomGame(opponentUid) {
+function _startRoomGame(opponentUid, opponentHn) {
   if (_gameStarting) return;
   _gameStarting = true;
+  oppHN = opponentHn || null;
 
   // ルーム設定を最新値で確定
   const s = _roomSettings;
@@ -4381,6 +4424,10 @@ function _attachRoomListeners(rid) {
       else if (room.uids.player2 === myUserId) myRole = 'player2';
       else return; // 自分がuidsに含まれていない（観戦等）
 
+      // 相手のHNを取得（ラベル表示用）
+      const oppUid = myRole === 'player1' ? room.uids.player2 : room.uids.player1;
+      oppHN = (room.members && room.members[oppUid] && room.members[oppUid].hn) || null;
+
       roomId = rid;
 
       // ルーム設定を適用
@@ -4465,18 +4512,47 @@ function _renderLobbyRooms(snap) {
   });
 }
 
+function formatTimestamp(ts) {
+  const d = new Date(ts);
+  const y  = d.getFullYear();
+  const m  = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h  = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day} ${h}:${min}`;
+}
+
+// 最新 CHAT_LIMIT 件を超えた古いメッセージを削除する。
+// limitToLast(CHAT_LIMIT+1) で最大 CHAT_LIMIT+1 件を取得し、
+// 件数が上限を超えていたらその中の最古1件だけを削除する。
+// 1回のpushにつき最大1回の読み取り + 最大1回の削除で済む。
+const CHAT_LIMIT = 100;
+function _pruneChat(chatRef) {
+  chatRef.orderByChild('ts').limitToLast(CHAT_LIMIT + 1).once('value', snap => {
+    if (snap.numChildren() <= CHAT_LIMIT) return;
+    let oldest = null;
+    snap.forEach(child => {
+      if (!oldest || child.val().ts < oldest.val().ts) oldest = child;
+    });
+    if (oldest) oldest.ref.remove();
+  });
+}
+
 function _appendChatMsg(containerId, msg) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const div = document.createElement('div');
   div.className = 'chat-msg';
+  const tsHtml = msg.ts ? `<span class="chat-timestamp">${formatTimestamp(msg.ts)}</span>` : '';
+  let body;
   if (msg.uid === 'system') {
-    div.innerHTML = `<span class="chat-msg-hn system">${_escHtml(msg.text)}</span>`;
+    body = `<span class="chat-msg-hn system">${_escHtml(msg.text)}</span>`;
   } else {
     const hnClass = 'chat-msg-hn' + (msg.uid !== myUserId ? ' opp' : '');
-    div.innerHTML = `<span class="${hnClass}">${_escHtml(msg.hn)}</span> `
-      + `<span class="chat-msg-text">${_escHtml(msg.text)}</span>`;
+    body = `<span class="${hnClass}">${_escHtml(msg.hn)}</span> `
+         + `<span class="chat-msg-text">${_escHtml(msg.text)}</span>`;
   }
+  div.innerHTML = `<span class="chat-msg-body">${body}</span>${tsHtml}`;
   container.appendChild(div);
   container.scrollTop = container.scrollHeight;
 }
@@ -4647,7 +4723,7 @@ function _updateRoomButtons(membersSnap) {
     const uids = Object.keys(membersSnap);
     if (uids.length >= 2 && uids.every(uid => membersSnap[uid].ready)) {
       const opponentUid = uids.find(uid => uid !== myUserId);
-      if (opponentUid) _startRoomGame(opponentUid);
+      if (opponentUid) _startRoomGame(opponentUid, membersSnap[opponentUid]?.hn);
     }
   }
 }
