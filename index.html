@@ -2893,7 +2893,13 @@ function showCharSelect() {
     grid.appendChild(card);
   });
 
-  document.getElementById('char-confirm-btn').onclick = () => { _applyPersonalSettings(); startGame(); };
+  document.getElementById('char-confirm-btn').onclick = () => {
+    // 選択されたキャラを personal settings に確定してから apply（順序が重要）
+    myPersonalSettings.character = settings.character;
+    _savePersonalSettings();
+    _applyPersonalSettings();
+    startGame();
+  };
   document.getElementById('char-back-btn').onclick = () => showScreen('start-screen');
 }
 
@@ -3104,7 +3110,7 @@ function startGame(wordsOverride = null) {
       ownerId: ownerNum,                 // 分身の場合は元プレイヤーのownerNumを指す
       isCpu,                             // type === 'cpu' の短縮形（後方互換用）
       // --- CPU専用状態 ---
-      charId: isCpu ? CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id : '',
+      charId: isCpu ? CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id : settings.character,
       moveHistory: [],  // 振動防止用の移動履歴
       cpuInput: '',     // HUD表示用タイピング進捗
     });
@@ -3375,7 +3381,8 @@ function createCharLabel(ownerNum) {
 }
 
 function createPlayerSVG() {
-  const charId = settings.character || 'speed';
+  const p = playerByOwner(myOwner());
+  const charId = (p && p.charId) || settings.character || 'speed';
   const el = document.createElement('div');
   el.className = `char-img player-char char-${charId}`;
   return el;
@@ -3385,7 +3392,7 @@ function createPlayerSVG() {
 // 各 charId ごとに、ゲーム内での登場順(出現インデックス 0-based)をそのまま variant に使う。
 // プレイヤー(ownerNum=1)は常に variant-0。
 function _resolveCharVariants() {
-  const playerCharId = settings.character || 'speed';
+  const playerCharId = (G.players[0] && G.players[0].charId) || 'speed';
   // charId → 次に割り当てるvariantIdx のカウンタ
   const counter = {};
   // プレイヤーを variant-0 で先占
