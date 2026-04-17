@@ -3,7 +3,7 @@
 <head>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Inconsolata:wght@400;700&family=Nunito:wght@400;700&family=Rajdhani:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=JetBrains+Mono:wght@400;700&family=Source+Code+Pro:wght@400;700&family=Inconsolata:wght@400;700&family=Nunito:wght@400;700;900&family=Rajdhani:wght@400;700&family=Baloo+2:wght@700;800;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -20,15 +20,28 @@
   --bg2:         hsl(220, 35%, 90%);   /* #dde5f5  パネル背景 */
   --bg3:         hsl(220, 28%, 82%);   /* #c0cde8  枠線・セパレータ */
 
-  /* === player (vivid blue) === */
-  --player-color: hsl(215, 85%, 52%);  /* #1779f5 */
-  --player-dim:   hsl(215, 70%, 84%);  /* #b0d2f8  領地塗り */
-  --player-glow:  hsla(215, 85%, 52%, 0.28);
+  /* === player 1 (human — overridden by personal settings) === */
+  --player-color: hsl(210, 70%, 58%);
+  --player-dim:   hsl(210, 65%, 88%);
+  --player-glow:  hsla(210, 70%, 58%, 0.28);
 
-  /* === cpu (vivid coral) === */
-  --cpu-color:   hsl(350, 78%, 58%);   /* #eb3355 */
-  --cpu-dim:     hsl(350, 72%, 87%);   /* #f8c1cb  領地塗り */
-  --cpu-glow:    hsla(350, 78%, 58%, 0.28);
+  /* === cpu (used for legacy 2-player HUD/score labels) === */
+  --cpu-color:   hsl(350, 72%, 58%);
+  --cpu-dim:     hsl(350, 65%, 87%);
+  --cpu-glow:    hsla(350, 72%, 58%, 0.28);
+
+  /* ===== FFA 8-player palette =====
+   * p1 = human (inherits --player-color via JS on game start)
+   * p2-p8 = fixed CPU palette, each fully distinct
+   * ============================================ */
+  --p1-color: hsl(210, 70%, 58%);  --p1-dim: hsl(210, 65%, 88%);  --p1-glow: hsla(210,70%,58%,0.32);
+  --p2-color: hsl(350, 72%, 58%);  --p2-dim: hsl(350, 65%, 87%);  --p2-glow: hsla(350,72%,58%,0.32);
+  --p3-color: hsl(145, 62%, 44%);  --p3-dim: hsl(145, 55%, 86%);  --p3-glow: hsla(145,62%,44%,0.32);
+  --p4-color: hsl(38,  85%, 52%);  --p4-dim: hsl(38,  75%, 87%);  --p4-glow: hsla(38, 85%,52%,0.32);
+  --p5-color: hsl(270, 62%, 60%);  --p5-dim: hsl(270, 55%, 88%);  --p5-glow: hsla(270,62%,60%,0.32);
+  --p6-color: hsl(185, 72%, 44%);  --p6-dim: hsl(185, 62%, 84%);  --p6-glow: hsla(185,72%,44%,0.32);
+  --p7-color: hsl(50,  78%, 52%);  --p7-dim: hsl(50,  68%, 87%);  --p7-glow: hsla(50, 78%,52%,0.32);
+  --p8-color: hsl(22,  80%, 54%);  --p8-dim: hsl(22,  70%, 87%);  --p8-glow: hsla(22, 80%,54%,0.32);
 
   /* === neutral cell === */
   --neutral:     hsl(220, 22%, 85%);   /* #cdd5e8 */
@@ -80,21 +93,22 @@ body::before { display: none; }
 }
 
 .game-title {
-  font-family: var(--font-display);
-  font-size: clamp(36px, 6vw, 72px);
-  font-weight: 900;
-  letter-spacing: 8px;
+  font-family: 'Baloo 2', 'Nunito', sans-serif;
+  font-size: clamp(42px, 7vw, 88px);
+  font-weight: 800;
+  letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--text);
-  text-shadow: 0 2px 16px var(--player-glow);
-  animation: titlePulse 3s ease-in-out infinite;
   text-align: center;
+  color: var(--player-color);
+  /* テーマカラーに合わせた軽いドロップシャドウのみ */
+  filter: drop-shadow(0 3px 10px var(--player-glow));
 }
-.game-title span { color: var(--cpu-color); text-shadow: 0 2px 12px var(--cpu-glow); }
 
-@keyframes titlePulse {
-  0%, 100% { text-shadow: 0 2px 16px var(--player-glow); }
-  50%       { text-shadow: 0 2px 28px var(--player-glow), 0 0 60px var(--player-glow); }
+/* span のスタイルをリセット（親の color をそのまま継承） */
+.game-title span {
+  color: inherit;
+  -webkit-text-fill-color: unset;
+  text-shadow: none;
 }
 
 .subtitle {
@@ -374,33 +388,51 @@ body::before { display: none; }
   overflow: visible;
 }
 
-/* Layer 1: territory background */
-.cell.neutral  { background: var(--neutral); }
-.cell.player   { background: var(--player-dim); }
-.cell.cpu      { background: var(--cpu-dim); }
+/* Layer 1: territory background — per-player (FFA) */
+.cell.neutral     { background: var(--neutral); }
+/* p1 = human player (color overridden at game start via --p1-dim) */
+.cell.cell-owner-me { background: var(--player-dim); }  /* always uses personal color */
+.cell.cell-owner-1  { background: var(--p1-dim); }
+.cell.cell-owner-2  { background: var(--p2-dim); }
+.cell.cell-owner-3  { background: var(--p3-dim); }
+.cell.cell-owner-4  { background: var(--p4-dim); }
+.cell.cell-owner-5  { background: var(--p5-dim); }
+.cell.cell-owner-6  { background: var(--p6-dim); }
+.cell.cell-owner-7  { background: var(--p7-dim); }
+.cell.cell-owner-8  { background: var(--p8-dim); }
 
-/* Layer 2: player position — inset blue border */
-.cell.has-player {
-  box-shadow: inset 0 0 0 3px var(--player-color), inset 0 0 0 5px transparent;
+/* Layer 2/3: character position — per-player inset border */
+/* YOU: 太い枠線 + パルス発光で8人混戦でも自分を見失わない */
+@keyframes playerCellPulse {
+  0%,100% { box-shadow: inset 0 0 0 4px var(--player-color), 0 0 8px  var(--player-glow); }
+  50%     { box-shadow: inset 0 0 0 4px var(--player-color), 0 0 18px var(--player-glow); }
 }
-
-/* Layer 3: CPU position — inset red border */
-.cell.has-cpu {
-  box-shadow: inset 0 0 0 3px var(--cpu-color);
-}
-
-/* Both on same cell (shouldn't happen but safety) */
-.cell.has-player.has-cpu {
-  box-shadow: inset 0 0 0 3px var(--player-color), inset 0 0 16px var(--cpu-glow);
-}
+.cell.has-owner-me { animation: playerCellPulse 1.8s ease-in-out infinite; }
+/* CPU: 細い枠線のみ（控えめ） */
+.cell.has-owner-1  { box-shadow: inset 0 0 0 2px var(--p1-color); }
+.cell.has-owner-2  { box-shadow: inset 0 0 0 2px var(--p2-color); }
+.cell.has-owner-3  { box-shadow: inset 0 0 0 2px var(--p3-color); }
+.cell.has-owner-4  { box-shadow: inset 0 0 0 2px var(--p4-color); }
+.cell.has-owner-5  { box-shadow: inset 0 0 0 2px var(--p5-color); }
+.cell.has-owner-6  { box-shadow: inset 0 0 0 2px var(--p6-color); }
+.cell.has-owner-7  { box-shadow: inset 0 0 0 2px var(--p7-color); }
+.cell.has-owner-8  { box-shadow: inset 0 0 0 2px var(--p8-color); }
 
 /* Layer 4: item border */
 .cell.has-item {
   border: 2px solid var(--item-color);
   box-shadow: inset 0 0 0 2px var(--item-color), 0 0 12px var(--item-glow);
 }
-.cell.has-item.has-player { box-shadow: inset 0 0 0 3px var(--player-color), 0 0 12px var(--item-glow); }
-.cell.has-item.has-cpu { box-shadow: inset 0 0 0 3px var(--cpu-color), 0 0 12px var(--item-glow); }
+/* item + character: player color takes priority */
+.cell.has-item.has-owner-me { box-shadow: inset 0 0 0 3px var(--player-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-1  { box-shadow: inset 0 0 0 3px var(--p1-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-2  { box-shadow: inset 0 0 0 3px var(--p2-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-3  { box-shadow: inset 0 0 0 3px var(--p3-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-4  { box-shadow: inset 0 0 0 3px var(--p4-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-5  { box-shadow: inset 0 0 0 3px var(--p5-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-6  { box-shadow: inset 0 0 0 3px var(--p6-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-7  { box-shadow: inset 0 0 0 3px var(--p7-color), 0 0 12px var(--item-glow); }
+.cell.has-item.has-owner-8  { box-shadow: inset 0 0 0 3px var(--p8-color), 0 0 12px var(--item-glow); }
 
 /* Layer 5: reachable range — ::after dashed */
 .cell.reachable::after {
@@ -421,7 +453,7 @@ body::before { display: none; }
 
 /* highlight candidates */
 .cell.candidate { background: hsl(100, 55%, 88%) !important; }
-.cell.candidate.player { background: hsl(200, 55%, 88%) !important; }
+.cell.candidate.cell-owner-me { background: hsl(200, 55%, 88%) !important; }
 
 /* word text */
 .cell-word {
@@ -499,7 +531,6 @@ body::before { display: none; }
   z-index: 10;
   pointer-events: none;
   display: block;
-  background-image: url('player_base_dot.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center top;
@@ -515,12 +546,28 @@ body::before { display: none; }
   50%      { transform: translateX(-50%) translateY(-4px); }
 }
 
-/* Character color variants: hue-rotate + pop drop-shadow */
-.char-azure   { filter: hue-rotate(0deg)   drop-shadow(0 4px 6px hsla(215,80%,52%,0.4)); }
-.char-ruby    { filter: hue-rotate(140deg)  drop-shadow(0 4px 6px hsla(350,75%,55%,0.4)); }
-.char-emerald { filter: hue-rotate(80deg)   drop-shadow(0 4px 6px hsla(145,65%,40%,0.4)); }
-.char-amber   { filter: hue-rotate(200deg)  drop-shadow(0 4px 6px hsla(38,85%,48%,0.4)); }
-.char-violet  { filter: hue-rotate(280deg)  drop-shadow(0 4px 6px hsla(280,65%,52%,0.4)); }
+/* Character image variants — each character has its own image */
+.char-speed    { background-image: url('speed.png'); }
+.char-freeze   { background-image: url('freeze.png'); }
+.char-bommer   { background-image: url('bommer.png'); }
+.char-jammer   { background-image: url('jammer.png'); }
+.char-ninja    { background-image: url('ninja.png'); }
+.char-alchemist { background-image: url('alchemist.png'); }
+
+/*
+ * Character color variants — applied when multiple characters share the same image.
+ * variant-0 = default appearance (no extra filter).
+ * variant-1..7 = hue-shifted alternates (45° steps) so clones are visually distinct.
+ * brightness/saturate are kept at 1.0 to preserve visibility.
+ */
+.char-variant-0 { filter: none; }
+.char-variant-1 { filter: hue-rotate(45deg)  drop-shadow(0 2px 6px hsla(45,80%,55%,0.55)); }
+.char-variant-2 { filter: hue-rotate(90deg)  drop-shadow(0 2px 6px hsla(90,75%,45%,0.55)); }
+.char-variant-3 { filter: hue-rotate(135deg) drop-shadow(0 2px 6px hsla(135,70%,45%,0.55)); }
+.char-variant-4 { filter: hue-rotate(180deg) saturate(0.85) drop-shadow(0 2px 6px hsla(180,70%,45%,0.55)); }
+.char-variant-5 { filter: hue-rotate(225deg) drop-shadow(0 2px 6px hsla(225,75%,55%,0.55)); }
+.char-variant-6 { filter: hue-rotate(270deg) drop-shadow(0 2px 6px hsla(270,65%,55%,0.55)); }
+.char-variant-7 { filter: hue-rotate(315deg) drop-shadow(0 2px 6px hsla(315,75%,55%,0.55)); }
 
 /* ===== CHARACTER LABELS ===== */
 .char-label {
@@ -541,8 +588,16 @@ body::before { display: none; }
   pointer-events: none;
   text-transform: uppercase;
 }
+/* char labels — background/shadow injected inline by createCharLabel() */
 .char-label-me  { background: var(--player-color); color: #fff; box-shadow: 0 3px 10px var(--player-glow); }
-.char-label-opp { background: var(--cpu-color);    color: #fff; box-shadow: 0 3px 10px var(--cpu-glow); }
+.char-label-p1  { background: var(--p1-color);  color: #fff; box-shadow: 0 2px 8px var(--p1-glow); }
+.char-label-p2  { background: var(--p2-color);  color: #fff; box-shadow: 0 2px 8px var(--p2-glow); }
+.char-label-p3  { background: var(--p3-color);  color: #fff; box-shadow: 0 2px 8px var(--p3-glow); }
+.char-label-p4  { background: var(--p4-color);  color: #fff; box-shadow: 0 2px 8px var(--p4-glow); }
+.char-label-p5  { background: var(--p5-color);  color: #fff; box-shadow: 0 2px 8px var(--p5-glow); }
+.char-label-p6  { background: var(--p6-color);  color: #fff; box-shadow: 0 2px 8px var(--p6-glow); }
+.char-label-p7  { background: var(--p7-color);  color: #fff; box-shadow: 0 2px 8px var(--p7-glow); }
+.char-label-p8  { background: var(--p8-color);  color: #fff; box-shadow: 0 2px 8px var(--p8-glow); }
 
 /* ===== SIDE PANELS ===== */
 .side-panel {
@@ -680,13 +735,52 @@ body::before { display: none; }
 .result-title.lose { color: var(--cpu-color);    text-shadow: 0 3px 20px var(--cpu-glow); }
 .result-title.draw { color: var(--accent);       text-shadow: 0 3px 16px var(--item-glow); }
 
-.result-scores {
+.result-ranking {
   display: flex;
-  gap: 40px;
-  font-size: 24px;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 300px;
 }
-.result-score-player { color: var(--player-color); }
-.result-score-cpu { color: var(--cpu-color); }
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg2);
+  border: 1.5px solid var(--bg3);
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 18px;
+  transition: box-shadow 0.2s;
+}
+.rank-row.is-me {
+  border-color: var(--player-color);
+  box-shadow: 0 0 14px var(--player-glow);
+}
+.rank-num {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  min-width: 34px;
+}
+.rank-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.rank-name {
+  flex: 1;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-size: 15px;
+}
+.rank-score {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 1px;
+}
 
 .retry-btn {
   background: var(--bg2);
@@ -702,6 +796,47 @@ body::before { display: none; }
   transition: all 0.2s;
 }
 .retry-btn:hover { border-color: var(--player-color); color: var(--player-color); box-shadow: 0 4px 18px var(--player-glow); }
+
+/* ===== RESULT ACTION BUTTONS ===== */
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 340px;
+}
+.result-btn-retry {
+  background: linear-gradient(135deg, var(--player-color), hsl(230, 80%, 42%));
+  border: none;
+  color: #fff;
+  font-family: var(--font-main);
+  font-size: 16px;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  padding: 14px 0;
+  width: 100%;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 6px 24px var(--player-glow);
+}
+.result-btn-retry:hover { transform: scale(1.03); box-shadow: 0 8px 32px var(--player-glow); }
+.result-btn-secondary {
+  background: var(--bg2);
+  border: 2px solid var(--bg3);
+  color: var(--text-dim);
+  font-family: var(--font-main);
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 9px 0;
+  width: 100%;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.result-btn-secondary:hover { border-color: var(--player-color); color: var(--player-color); box-shadow: 0 3px 14px var(--player-glow); }
 
 /* ===== MISC ===== */
 .freeze-overlay {
@@ -914,7 +1049,6 @@ body::before { display: none; }
   width: 140px;
   height: 148px;
   display: block;
-  background-image: url('player_base.png');
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
@@ -1261,6 +1395,19 @@ body::before { display: none; }
         </div>
 
         <div class="setting-group">
+          <div class="setting-label">CPU Count</div>
+          <div class="btn-group" id="numcpu-opts">
+            <button class="opt-btn selected" data-val="1">1</button>
+            <button class="opt-btn" data-val="2">2</button>
+            <button class="opt-btn" data-val="3">3</button>
+            <button class="opt-btn" data-val="4">4</button>
+            <button class="opt-btn" data-val="5">5</button>
+            <button class="opt-btn" data-val="6">6</button>
+            <button class="opt-btn" data-val="7">7</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
           <div class="setting-label">CPU Speed (KPM)</div>
           <div class="kpm-slider-wrap">
             <input type="range" id="kpm-slider" min="100" max="1200" step="100" value="200">
@@ -1356,15 +1503,20 @@ body::before { display: none; }
   </div>
 
   <div class="legend">
-    <div class="legend-item"><div class="legend-dot" style="background:var(--player-dim)"></div> Player</div>
-    <div class="legend-item"><div class="legend-dot" style="background:var(--cpu-dim)"></div> CPU</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--player-dim)"></div> YOU</div>
+    <div class="legend-item" style="display:flex;gap:3px;align-items:center;">
+      <div class="legend-dot" style="background:var(--p2-dim)"></div>
+      <div class="legend-dot" style="background:var(--p3-dim)"></div>
+      <div class="legend-dot" style="background:var(--p4-dim)"></div>
+      CPU
+    </div>
     <div class="legend-item"><div class="legend-dot" style="background:var(--neutral)"></div> Neutral</div>
   </div>
 </div>
 
 <!-- ===== CHAR SELECT SCREEN ===== -->
 <div id="char-select-screen" class="screen">
-  <div class="game-title" style="font-size:clamp(22px,4vw,44px);letter-spacing:6px">CHOOSE YOUR CHARACTER</div>
+  <div class="game-title" style="font-size:clamp(20px,3.5vw,40px);letter-spacing:3px">CHOOSE YOUR CHARACTER</div>
   <div class="char-grid" id="char-grid"></div>
   <div style="display:flex;gap:12px;">
     <button class="retry-btn" id="char-back-btn">BACK</button>
@@ -1525,10 +1677,7 @@ body::before { display: none; }
 <!-- ===== END SCREEN ===== -->
 <div id="end-screen" class="screen">
   <div class="result-title" id="result-title">DRAW</div>
-  <div class="result-scores">
-    <div class="result-score-player" id="result-player">Player: 0</div>
-    <div class="result-score-cpu" id="result-cpu">CPU: 0</div>
-  </div>
+  <div class="result-ranking" id="result-ranking"></div>
   <div style="display:flex;gap:48px;font-size:20px;color:var(--text-dim);letter-spacing:2px;margin:8px 0">
     <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
       <div style="font-size:11px;letter-spacing:3px">KPM</div>
@@ -1543,7 +1692,11 @@ body::before { display: none; }
       <span id="result-maxcombo" style="color:var(--combo);font-size:28px;font-weight:bold">0</span>
     </div>
   </div>
-  <button class="retry-btn" id="retry-btn">PLAY AGAIN</button>
+  <div class="result-actions">
+    <button class="result-btn-retry"      id="retry-btn">RETRY</button>
+    <button class="result-btn-secondary"  id="settings-btn">CHANGE SETTINGS</button>
+    <button class="result-btn-secondary"  id="title-btn">TITLE</button>
+  </div>
 </div>
 
 <script>
@@ -2402,13 +2555,14 @@ function getDisplayRomaji(kana, input) {
 }
 
 // ===== CHARACTERS =====
-// hue: CSS hue-rotate degrees applied to player_base.png
+// image: キャラクター専用画像ファイル名
 const CHARACTERS = [
-  { id: 'azure',   name: 'AZURE',   hue:   0 },
-  { id: 'ruby',    name: 'RUBY',    hue: 140 },
-  { id: 'emerald', name: 'EMERALD', hue:  80 },
-  { id: 'amber',   name: 'AMBER',   hue: 200 },
-  { id: 'violet',  name: 'VIOLET',  hue: 280 },
+  { id: 'speed',     name: 'SPEED',     image: 'speed.png'     },
+  { id: 'freeze',    name: 'FREEZE',    image: 'freeze.png'    },
+  { id: 'bommer',    name: 'BOMMER',    image: 'bommer.png'    },
+  { id: 'jammer',    name: 'JAMMER',    image: 'jammer.png'    },
+  { id: 'ninja',     name: 'NINJA',     image: 'ninja.png'     },
+  { id: 'alchemist', name: 'ALCHEMIST', image: 'alchemist.png' },
 ];
 
 // ===== CONSTANTS =====
@@ -2438,19 +2592,110 @@ const PLAYER_COLORS = [
 
 // ownerNum(1-based) → 初期スタート座標 [r, c]
 // 8人まで対応。2人対戦では corners[0]/corners[1] のみ使用。
-function playerStartPos(ownerNum, n) {
-  const h = Math.floor((n - 1) / 2);
-  const corners = [
-    [0,     0    ],  // 1: 左上
-    [n-1,   n-1  ],  // 2: 右下
-    [0,     n-1  ],  // 3: 右上
-    [n-1,   0    ],  // 4: 左下
-    [0,     h    ],  // 5: 上中央
-    [n-1,   h    ],  // 6: 下中央
-    [h,     0    ],  // 7: 左中央
-    [h,     n-1  ],  // 8: 右中央
+// ===== START AREA DEFINITIONS =====
+// マップを8エリアに分割し、各プレイヤーの初期配置エリアを返す。
+// 配置順: NW→SE→NE→SW→N→S→W→E (ownerNum 1-8 に対応)
+// 各エリアはセル座標の配列として返す。
+function getStartAreas(n) {
+  const q = Math.max(1, Math.floor(n / 3)); // コーナー幅（1〜2マス）
+  const mid = Math.floor(n / 2);
+  const mHalf = Math.max(1, Math.floor(q / 2));
+  const defs = [
+    { rMin: 0,       rMax: q-1,       cMin: 0,       cMax: q-1       }, // NW
+    { rMin: n-q,     rMax: n-1,       cMin: n-q,     cMax: n-1       }, // SE
+    { rMin: 0,       rMax: q-1,       cMin: n-q,     cMax: n-1       }, // NE
+    { rMin: n-q,     rMax: n-1,       cMin: 0,       cMax: q-1       }, // SW
+    { rMin: 0,       rMax: q-1,       cMin: mid-mHalf, cMax: mid+mHalf-1 }, // N
+    { rMin: n-q,     rMax: n-1,       cMin: mid-mHalf, cMax: mid+mHalf-1 }, // S
+    { rMin: mid-mHalf, rMax: mid+mHalf-1, cMin: 0,   cMax: q-1       }, // W
+    { rMin: mid-mHalf, rMax: mid+mHalf-1, cMin: n-q, cMax: n-1       }, // E
   ];
-  return corners[ownerNum - 1] || [0, 0];
+  return defs.map(a => {
+    const cells = [];
+    for (let r = a.rMin; r <= a.rMax; r++)
+      for (let c = a.cMin; c <= a.cMax; c++)
+        if (r >= 0 && r < n && c >= 0 && c < n) cells.push({ r, c });
+    return cells.length ? cells : [{ r: Math.floor(n/2), c: Math.floor(n/2) }];
+  });
+}
+
+// ownerNum のエリアから空きマスをランダム選択して [r, c] を返す。
+// takenSet: 'r,c' 形式の文字列セット（他プレイヤーの確定済み座標）
+function pickStartPos(ownerNum, n, takenSet) {
+  const areas = getStartAreas(n);
+  const area = areas[(ownerNum - 1) % areas.length];
+  const free = area.filter(({ r, c }) => !takenSet.has(`${r},${c}`));
+  const pool = free.length ? free : area;
+  const cell = pool[Math.floor(Math.random() * pool.length)];
+  return [cell.r, cell.c];
+}
+
+// ===== RANDOM TELEPORT =====
+// playerObj をマップ全体のランダムな空きマスに転移する（マスの色は変えない）。
+// 転移先の候補: 他プレイヤーと重ならないマス。空きがなければ任意のマスを選ぶ。
+function randomTeleport(playerObj) {
+  const n = G.n;
+  const occupied = new Set(G.players.filter(p => p !== playerObj).map(p => `${p.r},${p.c}`));
+  const candidates = [];
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (!occupied.has(`${r},${c}`)) candidates.push({ r, c });
+  const pool = candidates.length ? candidates : Array.from({ length: n * n }, (_, i) => ({ r: Math.floor(i / n), c: i % n }));
+  const dest = pool[Math.floor(Math.random() * pool.length)];
+  playerObj.r = dest.r;
+  playerObj.c = dest.c;
+}
+
+// ===== TEAM JUDGMENT =====
+// チームIDベースで味方・敵を判定する。
+// FFA では teamId === ownerNum なので全員が敵同士。
+// チーム戦では同じ teamId を共有したプレイヤーが「味方」になる。
+
+// 2プレイヤーが味方かどうかを返す（同一プレイヤーも true）
+function isAlly(ownerA, ownerB) {
+  if (ownerA === ownerB) return true;
+  const pa = playerByOwner(ownerA), pb = playerByOwner(ownerB);
+  return !!(pa && pb && pa.teamId === pb.teamId);
+}
+
+// 2プレイヤーが敵かどうかを返す
+function isEnemy(ownerA, ownerB) {
+  return ownerA !== ownerB && !isAlly(ownerA, ownerB);
+}
+
+// ===== TARGET SELECTION =====
+// アイテムごとに対象取得ロジックを分離し、将来の単体/全体/味方切り替えに対応する。
+
+// attackerOwner の「敵」からランダム1人のownerNumを返す（freeze/bomb/banish用）
+function getRandomEnemy(attackerOwner) {
+  const enemies = getAllEnemies(attackerOwner);
+  return enemies.length ? enemies[Math.floor(Math.random() * enemies.length)] : null;
+}
+
+// attackerOwner の全敵 ownerNum を返す（将来の全体攻撃アイテム用）
+function getAllEnemies(attackerOwner) {
+  return G.players.map((_, i) => i + 1).filter(o => isEnemy(attackerOwner, o));
+}
+
+// attackerOwner の全味方（自分除く）ownerNum を返す（将来の味方バフアイテム用）
+function getAllAllies(attackerOwner) {
+  return G.players.map((_, i) => i + 1).filter(o => isAlly(attackerOwner, o) && o !== attackerOwner);
+}
+
+// cells 内にいる attackerOwner の敵プレイヤーを返す（beam/missile/warp判定用）
+function getEnemiesInCells(attackerOwner, cells) {
+  const cellSet = new Set(cells.map(({ r, c }) => `${r},${c}`));
+  return G.players
+    .map((p, i) => ({ p, ownerNum: i + 1 }))
+    .filter(({ p, ownerNum }) => isEnemy(attackerOwner, ownerNum) && cellSet.has(`${p.r},${p.c}`));
+}
+
+// セルの ownerTeamId を返す（将来チーム単位の陣地管理への移行用）
+// 現在は ownerPlayerId(=cell.owner) と同じだが、チーム戦時は teamId ベースにできる
+function cellOwnerTeamId(cell) {
+  if (!cell.owner) return 0;
+  const p = playerByOwner(cell.owner);
+  return p ? p.teamId : cell.owner;
 }
 
 // ===== STATE =====
@@ -2497,8 +2742,34 @@ function playWarp() {
   setTimeout(() => playTone(1200, 'triangle', 0.1, 0.2), 60);
 }
 
+// ===== FFA COLOR PALETTE =====
+// ownerNum(1-8) → CSS variable names --pN-color/dim/glow
+// index 0 is unused; index 1 = player (overridden by personal settings), 2-8 = CPUs
+const FFA_PALETTE = [
+  null,
+  { color: '--p1-color', dim: '--p1-dim', glow: '--p1-glow' }, // 1: human
+  { color: '--p2-color', dim: '--p2-dim', glow: '--p2-glow' }, // 2: CPU1  (red)
+  { color: '--p3-color', dim: '--p3-dim', glow: '--p3-glow' }, // 3: CPU2  (green)
+  { color: '--p4-color', dim: '--p4-dim', glow: '--p4-glow' }, // 4: CPU3  (amber)
+  { color: '--p5-color', dim: '--p5-dim', glow: '--p5-glow' }, // 5: CPU4  (purple)
+  { color: '--p6-color', dim: '--p6-dim', glow: '--p6-glow' }, // 6: CPU5  (cyan)
+  { color: '--p7-color', dim: '--p7-dim', glow: '--p7-glow' }, // 7: CPU6  (yellow)
+  { color: '--p8-color', dim: '--p8-dim', glow: '--p8-glow' }, // 8: CPU7  (orange)
+];
+
+// ゲーム開始時に --p1-* を現在のパーソナルカラーで上書きし、全プレイヤーカラーを確定させる
+function _applyFfaColors() {
+  const root = document.documentElement;
+  const cs = getComputedStyle(root);
+  // p1 = human player → personal settings color
+  root.style.setProperty('--p1-color', cs.getPropertyValue('--player-color').trim());
+  root.style.setProperty('--p1-dim',   cs.getPropertyValue('--player-dim').trim());
+  root.style.setProperty('--p1-glow',  cs.getPropertyValue('--player-glow').trim());
+  // p2-p8 are already defined in :root and never change
+}
+
 // ===== SETTINGS =====
-let settings = { n: 6, time: 30, wordLen: 4, kpm: 200, itemInterval: 5, initItems: 2, wordFontSize: 18, wordFont: "'Roboto Mono',monospace", theme: 'default', character: 'azure', language: 'en' };
+let settings = { n: 6, time: 30, wordLen: 4, kpm: 200, numCpu: 1, itemInterval: 5, initItems: 2, wordFontSize: 18, wordFont: "'Roboto Mono',monospace", theme: 'default', character: 'speed', language: 'en' };
 
 // フォントサイズ 5 段階 (px値 → ラベル)
 const FONT_SIZE_STEPS = [
@@ -2644,7 +2915,7 @@ function _updateFontPreview() {
   const effPx = computeEffectiveFontSize(base, wl, PREVIEW_CELL_PX);
 
   // ① キャラクター画像（現在の settings.character を反映）
-  const charId = settings.character || 'azure';
+  const charId = settings.character || 'speed';
   const charImg = document.createElement('div');
   charImg.className = `char-img player-char char-${charId}`;
   cellEl.appendChild(charImg);
@@ -2669,7 +2940,7 @@ function _updateFontPreview() {
 // ===== START SCREEN =====
 function initStartScreen() {
   // Option buttons
-  ['lang-opts','size-opts','time-opts','wordlen-opts','item-opts','init-items-opts','uisize-opts','theme-opts'].forEach(id => {
+  ['lang-opts','size-opts','time-opts','wordlen-opts','numcpu-opts','item-opts','init-items-opts','uisize-opts','theme-opts'].forEach(id => {
     document.getElementById(id).querySelectorAll('.opt-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         btn.parentElement.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
@@ -2678,6 +2949,7 @@ function initStartScreen() {
                            : id === 'size-opts'       ? 'n'
                            : id === 'time-opts'       ? 'time'
                            : id === 'wordlen-opts'    ? 'wordLen'
+                           : id === 'numcpu-opts'     ? 'numCpu'
                            : id === 'item-opts'       ? 'itemInterval'
                            : id === 'init-items-opts' ? 'initItems'
                            : id === 'uisize-opts'     ? 'wordFontSize'
@@ -2707,7 +2979,19 @@ function initStartScreen() {
 
   document.getElementById('start-btn').addEventListener('click', showCharSelect);
   document.getElementById('online-btn').addEventListener('click', enterLobby);
+  // RETRY: 同じ設定で即再戦（設定画面を経由しない）
   document.getElementById('retry-btn').addEventListener('click', () => {
+    if (G.endScreenTimer) { clearTimeout(G.endScreenTimer); G.endScreenTimer = null; }
+    _applyPersonalSettings();
+    startGame();
+  });
+  // CHANGE SETTINGS: 設定画面へ
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    if (G.endScreenTimer) { clearTimeout(G.endScreenTimer); G.endScreenTimer = null; }
+    showScreen('start-screen');
+  });
+  // TITLE: タイトルへ
+  document.getElementById('title-btn').addEventListener('click', () => {
     if (G.endScreenTimer) { clearTimeout(G.endScreenTimer); G.endScreenTimer = null; }
     showScreen('start-screen');
   });
@@ -2786,10 +3070,6 @@ function startGame(wordsOverride = null) {
     missCount: 0,
     maxCombo: 0,
     gameStartTime: 0,
-    cpuInput: '',
-    cpuTargetWord: '',
-    cpuTypedCount: 0,
-    cpuTypingTimer: null,
     // items on map
     mapItems: {},    // key = "r,c" => type (ローカル参照用)
     itemFbKeys: {},  // key = "r,c" => Firebase push key (online削除用)
@@ -2801,18 +3081,32 @@ function startGame(wordsOverride = null) {
     lastFrame: 0,
     animId: null,
     timerInterval: null,
-    cpuMoveHistory: [],
   };
 
-  // プレイヤー初期化 (現在は2人。activePlayers を増やすだけでN人に拡張可)
-  const activePlayers = 2;
+  // FFA カラーを CSS 変数に反映（personal colorがp1に割り当てられる）
+  _applyFfaColors();
+
+  // プレイヤー初期化 (オフライン: 1 + numCpu人、オンライン: 2人固定)
+  const activePlayers = isOnline ? 2 : 1 + Math.min(7, Math.max(1, settings.numCpu));
+  const takenPositions = new Set();
   for (let i = 0; i < activePlayers; i++) {
     const ownerNum = i + 1;
-    const [sr, sc] = playerStartPos(ownerNum, n);
+    const isCpu = !isOnline && ownerNum > 1;
+    const [sr, sc] = isOnline ? (ownerNum === 1 ? [0, 0] : [n-1, n-1]) : pickStartPos(ownerNum, n, takenPositions);
+    takenPositions.add(`${sr},${sc}`);
     G.players.push({
       r: sr, c: sc,
       freezeUntil: 0, speedUntil: 0,
-      isCpu: !isOnline && ownerNum > 1,
+      // --- Identity ---
+      ownerNum,                          // 1-based index (配列アクセス用)
+      type: isCpu ? 'cpu' : 'human',     // 'human' | 'cpu' | 'clone' (将来)
+      teamId: ownerNum,                  // FFA: 全員別チーム。チーム戦時は共有teamIdを割り当てる
+      ownerId: ownerNum,                 // 分身の場合は元プレイヤーのownerNumを指す
+      isCpu,                             // type === 'cpu' の短縮形（後方互換用）
+      // --- CPU専用状態 ---
+      charId: isCpu ? CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)].id : '',
+      moveHistory: [],  // 振動防止用の移動履歴
+      cpuInput: '',     // HUD表示用タイピング進捗
     });
   }
 
@@ -2862,7 +3156,12 @@ function startGame(wordsOverride = null) {
   renderAll();
   startCountdown(() => {
     startTimers();
-    if (!isOnline) cpuLoop();
+    // 各CPUに個別ループを起動
+    if (!isOnline) {
+      G.players.forEach((p, i) => {
+        if (p.isCpu) cpuLoop(i + 1);
+      });
+    }
   });
 }
 
@@ -2941,6 +3240,7 @@ function renderAll() {
   const mo = myOwner();
   G.cells.forEach(cell => { if (cell.owner === mo) pScore++; else if (cell.owner) cScore++; });
   document.getElementById('score-player').textContent = pScore;
+  // FFA: 全非プレイヤーの合計マス数
   document.getElementById('score-cpu').textContent = cScore;
 
   for (let r = 0; r < n; r++) {
@@ -2949,24 +3249,24 @@ function renderAll() {
       const el = document.getElementById(`cell-${r}-${c}`);
       if (!el) continue;
 
-      // Layer 1: owner background
-      // owner=0: neutral, owner=mo: 自陣(player), それ以外: 相手陣(cpu + player-owner-N)
+      // Layer 1: territory background — FFA per-player
       el.className = 'cell';
       if (cell.owner === 0) {
         el.className += ' neutral';
       } else if (cell.owner === mo) {
-        el.className += ' player';
+        el.className += ' cell-owner-me';  // human player always uses personal color
       } else {
-        el.className += ` cpu player-owner-${cell.owner}`;
+        el.className += ` cell-owner-${cell.owner}`;  // each CPU gets unique palette color
       }
 
       // Candidate highlight
       if (candidates.has(`${r},${c}`)) el.classList.add('candidate');
 
-      // Layer 2/3: character position — G.players をループして全員チェック
+      // Layer 2/3: character position — per-player inset border
       G.players.forEach((p, pi) => {
         if (p.r === r && p.c === c) {
-          el.classList.add(pi + 1 === mo ? 'has-player' : 'has-cpu');
+          const ownerN = pi + 1;
+          el.classList.add(ownerN === mo ? 'has-owner-me' : `has-owner-${ownerN}`);
         }
       });
 
@@ -2992,9 +3292,10 @@ function renderAll() {
       // Characters — G.players 全員分ループ描画
       G.players.forEach((p, pi) => {
         if (p.r !== r || p.c !== c) return;
-        const isMe = pi + 1 === mo;
-        el.appendChild(isMe ? createPlayerSVG() : createCpuSVG());
-        el.appendChild(createCharLabel(isMe));
+        const ownerNum = pi + 1;
+        const isMe = ownerNum === mo;
+        el.appendChild(isMe ? createPlayerSVG() : createCpuSVG(ownerNum));
+        el.appendChild(createCharLabel(ownerNum));
         if (!isMe && Date.now() < (p.freezeUntil || 0)) {
           const fov = document.createElement('div');
           fov.className = 'freeze-overlay';
@@ -3055,29 +3356,60 @@ function renderAll() {
 }
 
 
-function createCharLabel(isMe) {
+// ownerNum: 1 = human player, 2-8 = CPU1-CPU7
+function createCharLabel(ownerNum) {
+  const mo = myOwner();
+  const isMe = ownerNum === mo;
   const lbl = document.createElement('div');
-  lbl.className = 'char-label ' + (isMe ? 'char-label-me' : 'char-label-opp');
+  // ラベルクラスでカラーを設定（me = personal color、others = FFA palette）
+  lbl.className = `char-label ${isMe ? 'char-label-me' : `char-label-p${ownerNum}`}`;
   if (isOnline) {
     lbl.textContent = isMe ? (myHN || 'YOU') : (oppHN || '???');
+  } else if (isMe) {
+    lbl.textContent = 'YOU';
   } else {
-    lbl.textContent = isMe ? 'YOU' : 'CPU';
+    // CPU番号: ownerNum=2 → CPU1、ownerNum=3 → CPU2、...
+    lbl.textContent = `CPU${ownerNum - 1}`;
   }
   return lbl;
 }
 
 function createPlayerSVG() {
-  const charId = settings.character || 'azure';
+  const charId = settings.character || 'speed';
   const el = document.createElement('div');
   el.className = `char-img player-char char-${charId}`;
   return el;
 }
 
-function createCpuSVG() {
-  // オンライン時: 相手の選択キャラクター、CPU対戦時: ruby（赤系）
-  const charId = isOnline ? (oppCharacter || 'azure') : 'ruby';
+// 同一キャラが複数いる場合にバリアントインデックスを決める。
+// 各 charId ごとに、ゲーム内での登場順(出現インデックス 0-based)をそのまま variant に使う。
+// プレイヤー(ownerNum=1)は常に variant-0。
+function _resolveCharVariants() {
+  const playerCharId = settings.character || 'speed';
+  // charId → 次に割り当てるvariantIdx のカウンタ
+  const counter = {};
+  // プレイヤーを variant-0 で先占
+  counter[playerCharId] = 1;
+  // CPUにvariantを割り当て(ownerNum昇順)
+  const variantMap = {}; // ownerNum → variantIdx
+  G.players.forEach((p, i) => {
+    const ownerNum = i + 1;
+    if (ownerNum === 1) return; // プレイヤーはスキップ
+    const cid = p.charId || 'speed';
+    const idx = counter[cid] || 0;
+    variantMap[ownerNum] = idx % 8;
+    counter[cid] = idx + 1;
+  });
+  return variantMap;
+}
+
+function createCpuSVG(ownerNum) {
+  const p = playerByOwner(ownerNum);
+  const charId = isOnline ? (oppCharacter || 'speed') : (p.charId || 'speed');
+  const variantMap = isOnline ? {} : _resolveCharVariants();
+  const variantIdx = isOnline ? 0 : (variantMap[ownerNum] || 0);
   const el = document.createElement('div');
-  el.className = `char-img cpu-char char-${charId}`;
+  el.className = `char-img cpu-char char-${charId} char-variant-${variantIdx}`;
   return el;
 }
 
@@ -3098,13 +3430,22 @@ function renderHUD() {
   const cd = document.getElementById('combo-display');
   cd.textContent = `×${G.combo}`;
 
-  // CPU input display
+  // CPU input display: CPU全員の入力をスラッシュ区切りで表示
   const cpuDisp = document.getElementById('cpu-input-display');
-  if (isOppFreeze()) {
+  if (!isOnline) {
+    const cpuTexts = G.players
+      .filter(p => p.isCpu)
+      .map(p => {
+        if (Date.now() < (p.freezeUntil || 0)) return '❄';
+        return p.cpuInput || '—';
+      });
+    cpuDisp.textContent = cpuTexts.join(' / ');
+    cpuDisp.style.color = '';
+  } else if (isOppFreeze()) {
     cpuDisp.textContent = '❄ FROZEN';
     cpuDisp.style.color = 'hsl(210,70%,38%)';
   } else {
-    cpuDisp.textContent = G.cpuInput || '—';
+    cpuDisp.textContent = oppP().cpuInput || '—';
     cpuDisp.style.color = '';
   }
 
@@ -3179,11 +3520,8 @@ function getPlayerRange() {
       if (nr>=0&&nr<n&&nc>=0&&nc<n) range.add(`${nr},${nc}`);
     });
   }
-  // 現在地も入力可能（ただし相手の初期マスにいるときは除外）
-  // 相手の初期位置: player1=左上(0,0), player2=右下(n-1,n-1) — 固定
-  const oppHomeR = myOwner() === 1 ? n-1 : 0;
-  const oppHomeC = myOwner() === 1 ? n-1 : 0;
-  if (!(r === oppHomeR && c === oppHomeC)) range.add(`${r},${c}`);
+  // 現在地も常に入力可能（初期位置による制限は廃止）
+  range.add(`${r},${c}`);
   return range;
 }
 
@@ -3236,15 +3574,15 @@ function playerMoveTo(r, c) {
   myP().r = r;
   myP().c = c;
 
-  // 衝突：相手プレイヤーのマスに入ったら相手を初期位置へワープ
-  if (r === oppP().r && c === oppP().c) {
-    const n = G.n;
-    const homeR = oppOwner() === 1 ? 0 : n - 1;
-    const homeC = oppOwner() === 1 ? 0 : n - 1;
-    oppP().r = homeR; oppP().c = homeC;
-    if (isOnline && roomId) writeOppPos(homeR, homeC);
-    playWarp();
-  }
+  // 衝突：同じマスにいる敵プレイヤーをランダム転移（味方とは衝突しない）
+  G.players.forEach((p, pi) => {
+    const otherOwner = pi + 1;
+    if (isEnemy(myOwner(), otherOwner) && p.r === r && p.c === c) {
+      randomTeleport(p);
+      if (isOnline && roomId && otherOwner === oppOwner()) writeOppPos(p.r, p.c);
+      playWarp();
+    }
+  });
 
   pickupItem(r, c, owner);
   playCapture();
@@ -3304,35 +3642,33 @@ function applyItem(type, attackerOwner, itemR, itemC) {
 }
 
 function triggerFreeze(attackerOwner) {
-  const victimP = playerByOwner(opponentOwner(attackerOwner));
+  // オフライン: ランダムな敵1人を凍結。オンライン: 相手固定（2人対戦）
+  const victimOwner = isOnline ? opponentOwner(attackerOwner) : (getRandomEnemy(attackerOwner) ?? attackerOwner);
+  const victimP = playerByOwner(victimOwner);
   victimP.freezeUntil = Date.now() + 5000;
   playFreeze();
-  // 攻撃側のみFBに書く（自分が攻撃した場合のみ）
   if (isOnline && roomId && attackerOwner === myOwner()) {
     writeOppFreeze(5000);
   }
 }
 
-// 塗ったマスに相手がいれば初期位置へワープ（オフライン用 / 攻撃側ローカルプレビュー用）
-// オンライン時は被弾側が _victimSelfCheckHit() で自己申告するため FB書き込みは不要
+// 塗ったマスにいる attackerOwner 以外の全プレイヤーをランダム転移する。
+// オフライン時はローカルで処理。オンライン時は被弾側が _victimSelfCheckHit() で自己申告するため本関数は
+// 攻撃側ローカルプレビューのみとなる（実際の位置は被弾側の申告で上書きされる）。
 function warpIfHit(attackerOwner, cells) {
-  const victimOwner = opponentOwner(attackerOwner);
-  const victimP = playerByOwner(victimOwner);
-  const [homeR, homeC] = playerStartPos(victimOwner, G.n);
-  if (cells.some(({r,c}) => r === victimP.r && c === victimP.c)) {
-    victimP.r = homeR; victimP.c = homeC;
-    if (victimOwner === myOwner()) G.input = ''; // 自分がワープされた（オフライン）
-    // オンライン: 被弾側が itemEffect リスナー経由で自己申告 → writeOppPos は不要
-    return true;
-  }
-  return false;
+  const hits = getEnemiesInCells(attackerOwner, cells);
+  hits.forEach(({ p, ownerNum }) => {
+    randomTeleport(p);
+    if (ownerNum === myOwner()) G.input = '';
+  });
+  return hits.length > 0;
 }
 
 function triggerBomb(attackerOwner) {
   const n = G.n;
-  const victimOwner = opponentOwner(attackerOwner);
+  // オフライン: ランダムな敵1人の3x3を爆破。オンライン: 相手固定（2人対戦）
+  const victimOwner = isOnline ? opponentOwner(attackerOwner) : (getRandomEnemy(attackerOwner) ?? attackerOwner);
   const victimP = playerByOwner(victimOwner);
-  const [homeR, homeC] = playerStartPos(victimOwner, n);
   const br = victimP.r, bc = victimP.c;
 
   const painted = [];
@@ -3346,13 +3682,11 @@ function triggerBomb(attackerOwner) {
     }
   }
 
-  victimP.r = homeR; victimP.c = homeC; // ローカルプレビュー（被弾側の自己申告で上書きされる）
-  if (victimOwner === myOwner()) G.input = '';
+  // 爆発範囲内にいる攻撃者以外の全プレイヤーをランダム転移
+  warpIfHit(attackerOwner, painted);
 
-  // 攻撃側のみFBに書く（grid変化は即時。敵位置は被弾側が自己申告するため書かない）
   if (isOnline && roomId && attackerOwner === myOwner()) {
     writeGridCells(painted, attackerOwner);
-    // victimR/victimC を含めることで被弾側が 3x3 内か自己チェック可能
     db.ref(`rooms/${roomId}/itemEffect`).set({ type: 'bomb', attackerOwner, victimR: br, victimC: bc, ts: firebase.database.ServerValue.TIMESTAMP });
   }
 
@@ -3368,7 +3702,8 @@ function triggerBomb(attackerOwner) {
 
 function triggerMeteor(attackerOwner) {
   const n = G.n;
-  const victimOwner = 3 - attackerOwner;
+  // オフライン: ランダムな敵1人の陣地を爆撃。オンライン: 相手固定（2人対戦）
+  const victimOwner = isOnline ? opponentOwner(attackerOwner) : (getRandomEnemy(attackerOwner) ?? attackerOwner);
 
   // 攻撃側のみランダム選択＆FB書き込みを行う（相手側は gridリスナー経由で受信）
   const enemyCells = [];
@@ -3418,20 +3753,18 @@ function triggerMeteor(attackerOwner) {
   }
 }
 
-// BANISH：敵をランダムなマスへ強制転移
-// 攻撃側がランダム転移先を決定し、FBに書く → 双方のplayersリスナーが適用
+// BANISH：攻撃者以外のランダムな1人をランダムなマスへ強制転移
 function triggerBanish(attackerOwner) {
-  const n = G.n;
-  const victimOwner = opponentOwner(attackerOwner);
+  const victimOwner = isOnline ? opponentOwner(attackerOwner) : (getRandomEnemy(attackerOwner) ?? attackerOwner);
   const victimP = playerByOwner(victimOwner);
   const victimRole = playerRole(victimOwner);
   const fromR = victimP.r, fromC = victimP.c;
 
-  const all = [];
-  for (let r = 0; r < n; r++)
-    for (let c = 0; c < n; c++)
-      if (r !== fromR || c !== fromC) all.push({r,c});
-  const dest = all[Math.floor(Math.random() * all.length)];
+  // randomTeleport を直接使うため dest を先取りする
+  randomTeleport(victimP);
+  const dest = { r: victimP.r, c: victimP.c };
+  // fromR/fromC に戻してアニメーション後に適用
+  victimP.r = fromR; victimP.c = fromC;
 
   const fromEl = document.getElementById(`cell-${fromR}-${fromC}`);
   if (fromEl) {
@@ -3783,167 +4116,250 @@ function gameLoop(now) {
 }
 
 // ===== CPU LOGIC =====
-async function cpuLoop() {
+// ===== CPU AI (multi-CPU support) =====
+// 全関数は cpuOwner (ownerNum) を受け取り、G.players[cpuOwner-1] を参照する。
+
+async function cpuLoop(cpuOwner) {
+  const cpuP = () => playerByOwner(cpuOwner);
   while (G.running) {
-    if (isOppFreeze()) {
+    if (Date.now() < (cpuP().freezeUntil || 0)) {
       await sleep(200);
       continue;
     }
-
-    const target = chooseCpuTarget();
+    const target = chooseCpuTarget(cpuOwner);
     if (!target) {
       await sleep(500);
       continue;
     }
-
-    // Type the word char by char
-    await cpuTypeWord(target);
-
+    await cpuTypeWord(cpuOwner, target);
     if (!G.running) break;
-    
-    // Small pause between moves
     await sleep(100);
   }
 }
 
-function chooseCpuTarget() {
-  if (isOppFreeze()) return null;
-  const reachable = getCpuReachable();
+function chooseCpuTarget(cpuOwner) {
+  const cpuP = playerByOwner(cpuOwner);
+  if (Date.now() < (cpuP.freezeUntil || 0)) return null;
+
+  const reachable = getCpuReachable(cpuOwner);
   if (!reachable.length) return null;
 
-  const myOw = myOwner(); // CPUの視点: myOwner()=1なら自分=player1, oppOwner()=2がCPU
-  const cpuOw = oppOwner(); // CPUの owner番号
+  // Priority 1: 敵陣地（自分以外のチームのセル）を狙う
+  const enemyCells = reachable.filter(({r,c}) => {
+    const o = getCell(r,c).owner;
+    return o !== 0 && isEnemy(cpuOwner, o);
+  });
+  if (enemyCells.length) return pickBest(cpuOwner, enemyCells);
 
-  // Priority 1: 相手（プレイヤー）の陣地
-  const enemyCells = reachable.filter(({r,c}) => getCell(r,c).owner === myOw);
-  if (enemyCells.length) return pickBest(enemyCells);
-
-  // Priority 2: 中立
+  // Priority 2: 中立マス
   const neutralCells = reachable.filter(({r,c}) => getCell(r,c).owner === 0);
-  if (neutralCells.length) return pickBest(neutralCells);
+  if (neutralCells.length) return pickBest(cpuOwner, neutralCells);
 
   // Priority 3: アイテム
   const itemCells = reachable.filter(({r,c}) => G.mapItems[`${r},${c}`]);
   if (itemCells.length) return itemCells[0];
 
-  // Priority 4: 相手陣地の方向へ
-  const pos = oppP();
-  const enemyDir = findDirectionToEnemy(pos.r, pos.c);
-  if (enemyDir) return enemyDir;
+  // Priority 4: 敵陣地に向かうBFS方向
+  const dir = findDirectionToEnemy(cpuP.r, cpuP.c, cpuOwner);
+  if (dir) return dir;
 
-  // Priority 5: 自分の陣地以外
-  const any = reachable.filter(({r,c}) => getCell(r,c).owner !== cpuOw);
+  // Priority 5: 自陣以外
+  const any = reachable.filter(({r,c}) => {
+    const o = getCell(r,c).owner;
+    return o === 0 || isEnemy(cpuOwner, o);
+  });
   if (any.length) return any[0];
 
   return null;
 }
 
-function getCpuReachable() {
-  const pos = oppP();
-  const r = pos.r, c = pos.c;
+function getCpuReachable(cpuOwner) {
+  const p = playerByOwner(cpuOwner);
+  const r = p.r, c = p.c;
   const n = G.n;
   const result = [];
-  const step = oppSpeedOn() ? 2 : 1;
+  const speedOn = Date.now() < (p.speedUntil || 0);
+  const step = speedOn ? 2 : 1;
   [[-1,0],[1,0],[0,-1],[0,1]].forEach(([dr,dc]) => {
     for (let s = 1; s <= step; s++) {
       const nr=r+dr*s, nc=c+dc*s;
       if (nr>=0&&nr<n&&nc>=0&&nc<n) result.push({r:nr,c:nc});
     }
   });
-  // 現在地も対象（ただし相手（プレイヤー）の初期マスにいるときは除外）
-  // プレイヤーの初期位置: myOwner()==1 → 左上(0,0), myOwner()==2 → 右下(n-1,n-1) — 固定
-  const myHomeR = myOwner() === 1 ? 0 : n-1;
-  const myHomeC = myOwner() === 1 ? 0 : n-1;
-  if (!(r === myHomeR && c === myHomeC)) result.push({ r, c });
+  // 現在地も入力可能（初期位置制限廃止）
+  result.push({ r, c });
   return result;
 }
 
-function pickBest(cells) {
-  // Avoid going back to same cell as last move to prevent oscillation
-  const last = G.cpuMoveHistory[G.cpuMoveHistory.length-1];
+function pickBest(cpuOwner, cells) {
+  const history = playerByOwner(cpuOwner).moveHistory;
+  const last = history[history.length - 1];
   const notLast = cells.filter(({r,c}) => !last || r!==last.r || c!==last.c);
   return notLast.length ? notLast[Math.floor(Math.random()*notLast.length)] : cells[0];
 }
 
-function findDirectionToEnemy(fromR, fromC) {
-  // BFS: CPUが相手（myOwner）の陣地を探す — 絶対owner番号で判定
-  const targetOwner = myOwner();
+function findDirectionToEnemy(fromR, fromC, cpuOwner) {
+  // BFS: 敵陣地（isEnemy）に向かう最初の1歩を返す
   const n = G.n;
   const visited = new Set();
   const queue = [{r:fromR,c:fromC,firstStep:null}];
   visited.add(`${fromR},${fromC}`);
-
   while (queue.length) {
     const {r,c,firstStep} = queue.shift();
-    const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-    for (const [dr,dc] of dirs) {
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
       const nr=r+dr, nc=c+dc;
       if (nr<0||nr>=n||nc<0||nc>=n) continue;
       const key=`${nr},${nc}`;
       if (visited.has(key)) continue;
       visited.add(key);
       const step = firstStep || {r:nr,c:nc};
-      if (getCell(nr,nc).owner === targetOwner) return step;
+      const cellOwner = getCell(nr,nc).owner;
+      if (cellOwner !== 0 && isEnemy(cpuOwner, cellOwner)) return step;
       queue.push({r:nr,c:nc,firstStep:step});
     }
   }
   return null;
 }
 
-async function cpuTypeWord(target) {
+async function cpuTypeWord(cpuOwner, target) {
   const cell = getCell(target.r, target.c);
   if (!cell) return;
   const word = cell.word;
-
-  const kpm = oppSpeedOn() ? G.kpm * 1.5 : G.kpm;
+  const cpuP = playerByOwner(cpuOwner);
+  const speedOn = () => Date.now() < (cpuP.speedUntil || 0);
+  const kpm = speedOn() ? G.kpm * 1.5 : G.kpm;
   const msPerChar = 60000 / kpm;
-  const required = word.length;
 
-  G.cpuInput = '';
-
-  for (let i = 0; i < required; i++) {
+  cpuP.cpuInput = '';
+  for (let i = 0; i < word.length; i++) {
     if (!G.running) return;
-    while (isOppFreeze() && G.running) await sleep(100);
+    while (Date.now() < (cpuP.freezeUntil || 0) && G.running) await sleep(100);
     if (!G.running) return;
-    G.cpuInput = word.slice(0, i+1);
+    cpuP.cpuInput = word.slice(0, i+1);
     renderAll();
     await sleep(msPerChar);
   }
 
-  // ワープ等で位置が変わっていた場合、targetが到達可能か再確認
-  const reachable = getCpuReachable();
-  const stillReachable = reachable.some(({r,c}) => r===target.r && c===target.c);
-
-
-    // 到達不可能になっていたら移動キャンセル
-  if (!stillReachable) { G.cpuInput = ''; return; }
-
-  cpuMoveTo(target.r, target.c);
-  G.cpuInput = '';
-}
-
-function cpuMoveTo(r, c) {
-  const opp = oppP();
-  const fromR = opp.r, fromC = opp.c;
-  const cpuOw = oppOwner();
-
-  G.cpuMoveHistory.push({r:fromR,c:fromC});
-  if (G.cpuMoveHistory.length > 4) G.cpuMoveHistory.shift();
-
-  const painted = paintPath(fromR, fromC, r, c, cpuOw);
-  opp.r = r; opp.c = c;
-
-  // 衝突（offline時）
-  if (!isOnline && r === myP().r && c === myP().c) {
-    const n = G.n;
-    myP().r = myOwner() === 1 ? 0 : n-1;
-    myP().c = myOwner() === 1 ? 0 : n-1;
-    G.input = '';
-    playWarp();
+  // ワープ等でtargetが届かなくなった場合はキャンセル
+  const reachable = getCpuReachable(cpuOwner);
+  if (!reachable.some(({r,c}) => r===target.r && c===target.c)) {
+    cpuP.cpuInput = '';
+    return;
   }
 
-  pickupItem(r, c, cpuOw);
+  cpuMoveTo(cpuOwner, target.r, target.c);
+  cpuP.cpuInput = '';
+}
+
+function cpuMoveTo(cpuOwner, r, c) {
+  const p = playerByOwner(cpuOwner);
+  const fromR = p.r, fromC = p.c;
+
+  p.moveHistory.push({r:fromR, c:fromC});
+  if (p.moveHistory.length > 4) p.moveHistory.shift();
+
+  paintPath(fromR, fromC, r, c, cpuOwner);
+  p.r = r; p.c = c;
+
+  // 衝突: 同じマスにいる敵プレイヤーをランダム転移（味方とは衝突しない）
+  G.players.forEach((other, oi) => {
+    const otherOwner = oi + 1;
+    if (isEnemy(cpuOwner, otherOwner) && other.r === r && other.c === c) {
+      randomTeleport(other);
+      if (otherOwner === myOwner()) G.input = '';
+      playWarp();
+    }
+  });
+
+  pickupItem(r, c, cpuOwner);
   renderAll();
+}
+
+// ===== RESULT HELPERS =====
+function playerDisplayName(ownerNum) {
+  const mo = myOwner();
+  if (ownerNum === mo) return 'YOU';
+  if (isOnline) return ownerNum === 1 ? (myHN || 'P1') : (oppHN || 'OPP');
+  // offline: ownerNum 1 = human, 2+ = CPUs
+  if (ownerNum === 1) return 'YOU';
+  return `CPU${ownerNum - 1}`;
+}
+
+function ordinal(n) {
+  const s = ['th','st','nd','rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function _buildRanking() {
+  // per-player score
+  const scores = {};
+  G.players.forEach((_, i) => { scores[i + 1] = 0; });
+  G.cells.forEach(cell => { if (cell.owner && scores[cell.owner] !== undefined) scores[cell.owner]++; });
+
+  // sort descending by score
+  const sorted = Object.entries(scores)
+    .map(([o, s]) => ({ ownerNum: Number(o), score: s }))
+    .sort((a, b) => b.score - a.score);
+
+  const mo = myOwner();
+  const rankEl = document.getElementById('result-ranking');
+  rankEl.innerHTML = '';
+
+  // FFA palette colors (matching CSS vars)
+  const paletteColors = [
+    null,
+    'hsl(210,70%,58%)', 'hsl(350,72%,58%)', 'hsl(145,62%,44%)',
+    'hsl(38,85%,52%)',  'hsl(270,62%,60%)', 'hsl(185,72%,44%)',
+    'hsl(50,78%,52%)',  'hsl(22,80%,54%)',
+  ];
+
+  let rank = 1;
+  sorted.forEach(({ ownerNum, score }, idx) => {
+    // handle ties: same rank if same score as previous
+    if (idx > 0 && sorted[idx].score < sorted[idx - 1].score) rank = idx + 1;
+
+    const isMe = ownerNum === mo;
+    const row = document.createElement('div');
+    row.className = 'rank-row' + (isMe ? ' is-me' : '');
+
+    const numEl = document.createElement('span');
+    numEl.className = 'rank-num';
+    numEl.textContent = ordinal(rank);
+
+    const dot = document.createElement('span');
+    dot.className = 'rank-dot';
+    const dotColor = isMe
+      ? getComputedStyle(document.documentElement).getPropertyValue('--player-color').trim()
+      : (paletteColors[ownerNum] || paletteColors[2]);
+    dot.style.background = dotColor;
+    dot.style.boxShadow = `0 0 6px ${dotColor}`;
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'rank-name';
+    nameEl.textContent = playerDisplayName(ownerNum);
+    if (isMe) nameEl.style.color = getComputedStyle(document.documentElement).getPropertyValue('--player-color').trim();
+
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'rank-score';
+    scoreEl.textContent = score;
+
+    row.append(numEl, dot, nameEl, scoreEl);
+    rankEl.appendChild(row);
+  });
+
+  // determine result title from player's perspective
+  const myEntry = sorted.find(e => e.ownerNum === mo);
+  const topScore = sorted[0].score;
+  const titleEl = document.getElementById('result-title');
+  if (!myEntry) { titleEl.textContent = 'GAME OVER'; titleEl.className = 'result-title draw'; return; }
+  if (myEntry.score === topScore && sorted.filter(e => e.score === topScore).length === 1) {
+    titleEl.textContent = 'YOU WIN!';  titleEl.className = 'result-title win';
+  } else if (myEntry.score === topScore) {
+    titleEl.textContent = 'DRAW';      titleEl.className = 'result-title draw';
+  } else {
+    titleEl.textContent = 'YOU LOSE';  titleEl.className = 'result-title lose';
+  }
 }
 
 // ===== END GAME =====
@@ -3953,20 +4369,11 @@ function endGame() {
   G.running = false;
   clearInterval(G.timerInterval);
   clearInterval(G.itemTimer);
-  if (G.cpuTypingTimer) clearTimeout(G.cpuTypingTimer);
+  // cpuTypingTimer は各 cpuTypeWord 内で await sleep により管理されるため不要
   document.removeEventListener('keydown', handleKeydown);
 
-  let pScore = 0, cScore = 0;
-  const _mo = myOwner();
-  G.cells.forEach(cell => { if(cell.owner===_mo)pScore++; else if(cell.owner)cScore++; });
+  _buildRanking();
 
-  const titleEl = document.getElementById('result-title');
-  if (pScore > cScore) { titleEl.textContent = 'YOU WIN!'; titleEl.className = 'result-title win'; }
-  else if (cScore > pScore) { titleEl.textContent = 'YOU LOSE'; titleEl.className = 'result-title lose'; }
-  else { titleEl.textContent = 'DRAW'; titleEl.className = 'result-title draw'; }
-
-  document.getElementById('result-player').textContent = `Player: ${pScore}`;
-  document.getElementById('result-cpu').textContent = `CPU: ${cScore}`;
   const elapsed = (Date.now() - G.gameStartTime) / 60000;
   const avgKpm = elapsed > 0.001 ? Math.round(G.totalKeystrokes / elapsed) : 0;
   document.getElementById('result-kpm').textContent      = avgKpm;
@@ -4025,17 +4432,18 @@ let oppHN = null;              // オンライン対戦時の相手ハンドル�
 
 // ===== パーソナル設定 =====
 // 各プレイヤーが個別に持つ設定。他プレイヤーには character のみ同期。
-const DEFAULT_PERSONAL_SETTINGS = { fontSize: 18, character: 'azure', themeColor: 'hsl(215,85%,52%)' };
+const DEFAULT_PERSONAL_SETTINGS = { fontSize: 18, character: 'speed', themeColor: 'hsl(210,70%,58%)' };
 let myPersonalSettings = { ...DEFAULT_PERSONAL_SETTINGS };
-let oppCharacter = 'azure';   // 相手が選んだキャラクター（オンライン時）
+let oppCharacter = 'speed';   // 相手が選んだキャラクター（オンライン時）
 
-// テーマカラーの選択肢 (PLAYER_COLORS の main/dim/glow をそのまま使用)
+// テーマカラーの選択肢 (パステルカラーパレット)
 const PERSONAL_THEME_COLORS = [
-  PLAYER_COLORS[0], // blue
-  PLAYER_COLORS[2], // green
-  PLAYER_COLORS[3], // orange
-  PLAYER_COLORS[4], // purple
-  PLAYER_COLORS[5], // cyan
+  { main: 'hsl(210,70%,58%)',  dim: 'hsl(210,65%,88%)',  glow: 'hsla(210,70%,58%,0.28)'  }, // sky blue
+  { main: 'hsl(340,65%,65%)',  dim: 'hsl(340,60%,90%)',  glow: 'hsla(340,65%,65%,0.28)'  }, // rose
+  { main: 'hsl(270,55%,65%)',  dim: 'hsl(270,50%,90%)',  glow: 'hsla(270,55%,65%,0.28)'  }, // lavender
+  { main: 'hsl(150,55%,48%)',  dim: 'hsl(150,50%,86%)',  glow: 'hsla(150,55%,48%,0.28)'  }, // mint
+  { main: 'hsl(28,75%,62%)',   dim: 'hsl(28,70%,90%)',   glow: 'hsla(28,75%,62%,0.28)'   }, // peach
+  { main: 'hsl(50,72%,55%)',   dim: 'hsl(50,68%,90%)',   glow: 'hsla(50,72%,55%,0.28)'   }, // lemon
 ];
 
 function _loadPersonalSettings() {
@@ -4257,7 +4665,7 @@ function _startRoomGame(opponentUid, opponentHn, opponentCharacter) {
   if (_gameStarting) return;
   _gameStarting = true;
   oppHN = opponentHn || null;
-  oppCharacter = opponentCharacter || 'azure';
+  oppCharacter = opponentCharacter || 'speed';
 
   // ルーム設定を最新値で確定
   const s = _roomSettings;
@@ -4448,7 +4856,6 @@ function _decodeCells(str) {
 function _victimSelfCheckHit(e) {
   if (!G.running || !roomId) return;
   const me = myP();
-  const [homeR, homeC] = playerStartPos(myOwner(), G.n);
   let isHit = false;
 
   switch (e.type) {
@@ -4488,11 +4895,11 @@ function _victimSelfCheckHit(e) {
   }
 
   if (isHit) {
-    me.r = homeR; me.c = homeC;
+    randomTeleport(me);
     G.input = '';
     // 自分のポジションを権威値として書き込む（攻撃側のプレビューを上書き）
-    db.ref(`rooms/${roomId}/players/${myRole}`).update({ r: homeR, c: homeC });
-    _posDirty = false; // 直前の書き込みで最新化済み
+    db.ref(`rooms/${roomId}/players/${myRole}`).update({ r: me.r, c: me.c });
+    _posDirty = false;
     playWarp();
     renderAll();
   }
@@ -4602,14 +5009,11 @@ function _handleOpponentDisconnect() {
   document.removeEventListener('keydown', handleKeydown);
   detachOnlineListeners();
 
-  let pScore = 0, cScore = 0;
-  const _mo = myOwner();
-  G.cells.forEach(cell => { if(cell.owner===_mo)pScore++; else if(cell.owner)cScore++; });
+  _buildRanking();
+  // override title for disconnect case
   const titleEl = document.getElementById('result-title');
-  titleEl.textContent = 'OPPONENT DISCONNECTED';
+  titleEl.textContent = 'OPP. DISCONNECTED';
   titleEl.className = 'result-title win';
-  document.getElementById('result-player').textContent = `Player: ${pScore}`;
-  document.getElementById('result-cpu').textContent    = `CPU: ${cScore}`;
   document.getElementById('result-kpm').textContent      = '-';
   document.getElementById('result-miss').textContent     = G.missCount;
   document.getElementById('result-maxcombo').textContent = G.maxCombo;
@@ -4766,7 +5170,7 @@ function _attachRoomListeners(rid) {
       const oppUid = myRole === 'player1' ? room.uids.player2 : room.uids.player1;
       const oppMemberData = (room.members && room.members[oppUid]) || {};
       oppHN        = oppMemberData.hn || null;
-      oppCharacter = (oppMemberData.settings && oppMemberData.settings.character) || 'azure';
+      oppCharacter = (oppMemberData.settings && oppMemberData.settings.character) || 'speed';
 
       roomId = rid;
 
@@ -5057,7 +5461,14 @@ function _renderRoomSettings() {
   charGroup.appendChild(charLbl);
   const charBtnGroup = document.createElement('div');
   charBtnGroup.className = 'btn-group';
-  const CHAR_COLORS = { azure:'hsl(215,85%,52%)', ruby:'hsl(350,78%,58%)', emerald:'hsl(145,65%,42%)', amber:'hsl(38,88%,50%)', violet:'hsl(280,68%,58%)' };
+  const CHAR_COLORS = {
+    speed:     'hsl(210,70%,58%)',
+    freeze:    'hsl(190,75%,52%)',
+    bommer:    'hsl(350,70%,60%)',
+    jammer:    'hsl(38,85%,55%)',
+    ninja:     'hsl(270,60%,60%)',
+    alchemist: 'hsl(150,55%,48%)',
+  };
   CHARACTERS.forEach(char => {
     const btn = document.createElement('button');
     btn.className = 'opt-btn char-opt-btn' + (myPersonalSettings.character === char.id ? ' selected' : '');
@@ -5152,7 +5563,7 @@ function _updateRoomButtons(membersSnap) {
       const opponentUid = uids.find(uid => uid !== myUserId);
       if (opponentUid) {
         const oppMember = membersSnap[opponentUid] || {};
-        _startRoomGame(opponentUid, oppMember.hn, oppMember.settings?.character || 'azure');
+        _startRoomGame(opponentUid, oppMember.hn, oppMember.settings?.character || 'speed');
       }
     }
   }
