@@ -851,6 +851,36 @@ body::before { display: none; }
 }
 @keyframes freezePulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
 
+/* ===== TELEPORT ANIMATIONS ===== */
+/* YOU 到着: ズームイン+フラッシュ */
+@keyframes teleportArriveMe {
+  0%   { box-shadow: 0 0 0px var(--player-glow); transform: scale(0.7); opacity: 0.2; }
+  40%  { box-shadow: 0 0 40px 12px var(--player-glow), inset 0 0 0 4px var(--player-color); transform: scale(1.12); opacity: 1; }
+  70%  { box-shadow: 0 0 18px 4px var(--player-glow), inset 0 0 0 3px var(--player-color); transform: scale(0.97); }
+  100% { box-shadow: none; transform: scale(1); }
+}
+/* CPU 到着: 軽いパルス */
+@keyframes teleportArriveCpu {
+  0%   { opacity: 0.2; transform: scale(0.8); }
+  50%  { opacity: 1;   transform: scale(1.08); }
+  100% { opacity: 1;   transform: scale(1); }
+}
+.teleport-arrive-me  { animation: teleportArriveMe  0.45s ease-out forwards; z-index: 10; }
+.teleport-arrive-cpu { animation: teleportArriveCpu 0.35s ease-out forwards; }
+
+/* lerp移動トレイル: fixed overlay が盤上をスライド */
+.teleport-trail-me {
+  border-radius: 50%;
+  background: radial-gradient(circle at center, var(--player-color) 15%, var(--player-glow) 60%, transparent 100%);
+  box-shadow: 0 0 24px 8px var(--player-glow);
+  opacity: 0.9;
+}
+.teleport-trail-cpu {
+  border-radius: 50%;
+  background: radial-gradient(circle at center, hsla(0,0%,90%,0.75) 20%, hsla(0,0%,70%,0.25) 75%, transparent 100%);
+  opacity: 0.55;
+}
+
 .cpu-frozen-label {
   position: absolute;
   top: 50%;
@@ -1427,7 +1457,7 @@ body::before { display: none; }
         </div>
 
         <div class="setting-group">
-          <div class="setting-label">Initial Items</div>
+          <div class="setting-label">Max Items</div>
           <div class="btn-group" id="init-items-opts">
             <button class="opt-btn" data-val="0">0</button>
             <button class="opt-btn" data-val="1">1</button>
@@ -2630,6 +2660,45 @@ function pickStartPos(ownerNum, n, takenSet) {
   return [cell.r, cell.c];
 }
 
+// ===== TELEPORT LERP ANIMATION =====
+// 転移元セルから転移先セルへ固定オーバーレイ要素をCSSトランジションでスライドさせる。
+// ゲームロジックとは完全に独立（coordinateはrandomTeleport内で即更新）。
+function _animateTeleport(ownerNum, fromR, fromC, toR, toC) {
+  const fromEl = document.getElementById(`cell-${fromR}-${fromC}`);
+  const toEl   = document.getElementById(`cell-${toR}-${toC}`);
+  if (!fromEl || !toEl) return;
+
+  const isMe = ownerNum === myOwner();
+  const duration = isMe ? 340 : 240; // ms
+
+  const fromRect = fromEl.getBoundingClientRect();
+  const toRect   = toEl.getBoundingClientRect();
+
+  const trail = document.createElement('div');
+  trail.className = isMe ? 'teleport-trail-me' : 'teleport-trail-cpu';
+  trail.style.cssText = [
+    'position:fixed',
+    `left:${fromRect.left}px`,
+    `top:${fromRect.top}px`,
+    `width:${fromRect.width}px`,
+    `height:${fromRect.height}px`,
+    'pointer-events:none',
+    'z-index:9999',
+    `transition:left ${duration}ms cubic-bezier(.4,0,.2,1),top ${duration}ms cubic-bezier(.4,0,.2,1),opacity ${duration * 0.6}ms ${duration * 0.4}ms`,
+    'will-change:left,top,opacity',
+  ].join(';');
+  document.body.appendChild(trail);
+
+  // 2フレーム待ちでトランジションを確実に起動
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    trail.style.left    = `${toRect.left}px`;
+    trail.style.top     = `${toRect.top}px`;
+    trail.style.opacity = '0';
+  }));
+
+  setTimeout(() => trail.remove(), duration + 120);
+}
+
 // ===== RANDOM TELEPORT =====
 // playerObj をマップ全体のランダムな空きマスに転移する（マスの色は変えない）。
 // 転移先の候補: 他プレイヤーと重ならないマス。空きがなければ任意のマスを選ぶ。
@@ -2642,6 +2711,27 @@ function randomTeleport(playerObj) {
       if (!occupied.has(`${r},${c}`)) candidates.push({ r, c });
   const pool = candidates.length ? candidates : Array.from({ length: n * n }, (_, i) => ({ r: Math.floor(i / n), c: i % n }));
   const dest = pool[Math.floor(Math.random() * pool.length)];
+
+  // アニメーション（ゲームロジック更新前に旧座標を保存して実行）
+  if (G.teleportAnims) {
+    const ownerNum = G.players.indexOf(playerObj) + 1;
+    const isMe = ownerNum === myOwner();
+    const arriveMs = isMe ? 450 : 350;
+
+    // lerp移動トレイル
+    _animateTeleport(ownerNum, playerObj.r, playerObj.c, dest.r, dest.c);
+
+    // 到着フラッシュ（到着マスのみ記録）
+    G.teleportAnims.set(ownerNum, {
+      toR: dest.r, toC: dest.c,
+      startMs: Date.now(), duration: arriveMs, isMe,
+    });
+    setTimeout(() => {
+      if (G.teleportAnims) G.teleportAnims.delete(ownerNum);
+      renderAll();
+    }, arriveMs + 80);
+  }
+
   playerObj.r = dest.r;
   playerObj.c = dest.c;
 }
@@ -3081,6 +3171,7 @@ function startGame(wordsOverride = null) {
     itemFbKeys: {},  // key = "r,c" => Firebase push key (online削除用)
     itemSpawner: 'player1', // items生成責任者。切断時にplayer2に切り替わる
     itemTimer: null,
+    teleportAnims: new Map(), // ownerNum → { fromR, fromC, toR, toC, startMs, isMe }
     running: false,
     kpm: settings.kpm,
     // timing
@@ -3275,6 +3366,16 @@ function renderAll() {
           el.classList.add(ownerN === mo ? 'has-owner-me' : `has-owner-${ownerN}`);
         }
       });
+
+      // Layer 3.5: teleport arrival flash（出発は lerp トレイルで表現するため不要）
+      if (G.teleportAnims && G.teleportAnims.size > 0) {
+        G.teleportAnims.forEach((anim) => {
+          const elapsed = Date.now() - anim.startMs;
+          if (elapsed > anim.duration) return;
+          const pfx = anim.isMe ? 'me' : 'cpu';
+          if (r === anim.toR && c === anim.toC) el.classList.add(`teleport-arrive-${pfx}`);
+        });
+      }
 
       // Layer 4: item
       const itemKey = `${r},${c}`;
@@ -3933,8 +4034,14 @@ function pickupItem(r, c, ownerNum) {
 }
 
 // ===== ITEM SPAWNING =====
+// initItems 個まとめてスポーンする。定期タイマーと初期配置の両方から呼ばれる想定。
+function spawnItems(count) {
+  for (let i = 0; i < count; i++) spawnItem();
+}
+
 function spawnItem() {
-  if (Object.keys(G.mapItems).length >= MAX_ITEMS) return;
+  // 上限 = initItems（設定値が同時存在上限）
+  if (Object.keys(G.mapItems).length >= settings.initItems) return;
 
   // オンライン非spawner：何もしない。アイテムはchild_addedで受信する
   // G.mapItemsをローカルに設定すると、spawnerと異なるアイテムが表示されてズレる
@@ -4048,9 +4155,6 @@ function handleKeydown(e) {
     G.combo++;
     if (G.combo > G.maxCombo) G.maxCombo = G.combo;
 
-    // 50コンボごとにCPUを強制転移
-    if (G.combo % 50 === 0) triggerBanish(1);
-
     playType();
     const cd = document.getElementById('combo-display');
     cd.classList.add('bump');
@@ -4081,7 +4185,11 @@ function startTimers() {
   // spawnerは接続中のプレイヤーが担う（初期はplayer1、切断時はplayer2が引き継ぐ）
   if (settings.itemInterval > 0) {
     G.itemTimer = setInterval(() => {
-      if (G.running) { spawnItem(); renderAll(); }
+      if (!G.running) return;
+      // 上限(initItems)まで不足分を補充
+      const toSpawn = settings.initItems - Object.keys(G.mapItems).length;
+      for (let i = 0; i < toSpawn; i++) spawnItem();
+      if (toSpawn > 0) renderAll();
     }, settings.itemInterval * 1000);
   }
 
